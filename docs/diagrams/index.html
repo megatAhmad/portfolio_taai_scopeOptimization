@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MWCS - System Flow Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            color: #2E86AB;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .diagram-section {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 40px;
+        }
+
+        .diagram-section h2 {
+            color: #2E86AB;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .diagram-section h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 24px;
+            background: #5DADE2;
+            border-radius: 2px;
+        }
+
+        .diagram-description {
+            color: #666;
+            margin-bottom: 25px;
+            padding-left: 14px;
+        }
+
+        .svg-container {
+            overflow-x: auto;
+            padding: 20px;
+            background: #fafbfc;
+            border-radius: 12px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .svg-container svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .mermaid-container {
+            padding: 20px;
+            background: #fafbfc;
+            border-radius: 12px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-node {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+        }
+
+        .legend-diamond {
+            width: 20px;
+            height: 20px;
+            transform: rotate(45deg);
+        }
+
+        .legend-rect {
+            width: 40px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .node-blue { background: #5DADE2; }
+        .node-pink { background: #F5B7B1; }
+        .node-green { background: #28a745; }
+        .node-red { background: #dc3545; }
+        .node-yellow { background: #ffc107; }
+        .node-gray { background: #6c757d; }
+
+        .legend-label {
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: #e9ecef;
+            color: #495057;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            background: #dee2e6;
+        }
+
+        .tab-btn.active {
+            background: #5DADE2;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .phase-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .phase-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border-left: 4px solid #5DADE2;
+        }
+
+        .phase-card h3 {
+            color: #2E86AB;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .phase-card p {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .phase-card ul {
+            margin-top: 10px;
+            padding-left: 20px;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        .phase-card li {
+            margin-bottom: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .legend {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Maintenance Work Categorization System</h1>
+            <p class="subtitle">System Architecture & Data Flow Diagrams</p>
+        </header>
+
+        <div class="diagram-section">
+            <h2>System Flow Overview</h2>
+            <p class="diagram-description">
+                The MWCS processes maintenance work items through a 5-phase pipeline:
+                Upload, Rule Configuration, Processing, Categorization, and Export.
+            </p>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('svg-tab')">SVG Diagram</button>
+                <button class="tab-btn" onclick="showTab('mermaid-tab')">Mermaid Diagram</button>
+            </div>
+
+            <div id="svg-tab" class="tab-content active">
+                <div class="svg-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700" width="1400" height="700">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+                            </marker>
+                            <style>
+                                .node-circle { fill: #5DADE2; stroke: none; }
+                                .node-diamond { fill: #F5B7B1; stroke: none; }
+                                .node-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; fill: #2E86AB; font-weight: 600; }
+                                .node-sublabel { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #666; }
+                                .edge-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; fill: #333; }
+                                .arrow-line { stroke: #333; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+                                .data-label { font-family: 'Courier New', monospace; font-size: 10px; fill: #666; }
+                                .outcome-accepted { fill: #28a745; }
+                                .outcome-rejected { fill: #dc3545; }
+                                .outcome-reconsider { fill: #ffc107; }
+                            </style>
+                        </defs>
+
+                        <rect width="1400" height="700" fill="white"/>
+
+                        <!-- Upload Node -->
+                        <circle cx="80" cy="120" r="25" class="node-circle"/>
+                        <text x="80" y="70" text-anchor="middle" class="node-label">Upload</text>
+                        <text x="80" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+                        <!-- Arrow: Upload to Validate -->
+                        <line x1="105" y1="120" x2="175" y2="120" class="arrow-line"/>
+                        <text x="140" y="110" text-anchor="middle" class="data-label">[.xlsx file]</text>
+
+                        <!-- Validate Data Diamond -->
+                        <polygon points="220,120 250,90 280,120 250,150" class="node-diamond"/>
+                        <text x="250" y="65" text-anchor="middle" class="node-label">Validate Data</text>
+                        <text x="250" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+                        <!-- Arrow: Validate Yes to Rules -->
+                        <line x1="280" y1="120" x2="370" y2="120" class="arrow-line"/>
+                        <text x="310" y="110" text-anchor="middle" class="edge-label">Valid</text>
+
+                        <!-- Arrow: Validate No to Error -->
+                        <line x1="250" y1="150" x2="250" y2="200" class="arrow-line"/>
+                        <text x="265" y="180" class="edge-label">Invalid</text>
+
+                        <!-- Error Node -->
+                        <circle cx="250" cy="230" r="20" class="node-circle"/>
+                        <text x="250" y="270" text-anchor="middle" class="node-sublabel">Show Errors</text>
+
+                        <!-- Loop back arrow from Error -->
+                        <path d="M 230 230 Q 150 230 150 150 Q 150 120 80 120" class="arrow-line" style="marker-end: none;"/>
+                        <polygon points="85,115 75,120 85,125" fill="#333"/>
+
+                        <!-- Rules Builder Node -->
+                        <circle cx="410" cy="120" r="25" class="node-circle"/>
+                        <text x="410" y="70" text-anchor="middle" class="node-label">Define Rules</text>
+                        <text x="410" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+                        <!-- Arrow: Rules to Preview -->
+                        <line x1="435" y1="120" x2="510" y2="120" class="arrow-line"/>
+                        <text x="470" y="110" text-anchor="middle" class="data-label">[ruleset]</text>
+
+                        <!-- Preview Diamond -->
+                        <polygon points="550,120 580,90 610,120 580,150" class="node-diamond"/>
+                        <text x="580" y="65" text-anchor="middle" class="node-label">Preview</text>
+                        <text x="580" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+                        <!-- Arrow: Preview Confirm -->
+                        <line x1="610" y1="120" x2="700" y2="120" class="arrow-line"/>
+                        <text x="650" y="110" text-anchor="middle" class="edge-label">Confirm</text>
+
+                        <!-- Arrow: Preview Edit back to Rules -->
+                        <path d="M 580 150 Q 580 180 495 180 Q 410 180 410 145" class="arrow-line"/>
+                        <text x="495" y="195" text-anchor="middle" class="edge-label">Edit</text>
+
+                        <!-- Process Node -->
+                        <circle cx="740" cy="120" r="25" class="node-circle"/>
+                        <text x="740" y="70" text-anchor="middle" class="node-label">Process</text>
+                        <text x="740" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+                        <!-- Arrow: Process to Evaluate -->
+                        <line x1="765" y1="120" x2="850" y2="120" class="arrow-line"/>
+                        <text x="805" y="110" text-anchor="middle" class="data-label">[rows]</text>
+
+                        <!-- Evaluate Rules Node -->
+                        <circle cx="890" cy="120" r="25" class="node-circle"/>
+                        <text x="890" y="70" text-anchor="middle" class="node-label">Evaluate Rules</text>
+                        <text x="890" y="85" text-anchor="middle" class="node-sublabel">(Logic Engine)</text>
+
+                        <!-- Arrow: Evaluate to AI Check -->
+                        <line x1="915" y1="120" x2="1000" y2="120" class="arrow-line"/>
+                        <text x="955" y="110" text-anchor="middle" class="data-label">[decision]</text>
+
+                        <!-- AI Available Diamond -->
+                        <polygon points="1040,120 1070,90 1100,120 1070,150" class="node-diamond"/>
+                        <text x="1070" y="65" text-anchor="middle" class="node-label">AI Available?</text>
+                        <text x="1070" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+                        <!-- Arrow: AI Yes to Generate -->
+                        <line x1="1100" y1="120" x2="1180" y2="120" class="arrow-line"/>
+                        <text x="1135" y="110" text-anchor="middle" class="edge-label">Yes</text>
+
+                        <!-- Generate AI Node -->
+                        <circle cx="1220" cy="120" r="25" class="node-circle"/>
+                        <text x="1220" y="70" text-anchor="middle" class="node-label">Generate AI</text>
+                        <text x="1220" y="85" text-anchor="middle" class="node-sublabel">(Justification)</text>
+
+                        <!-- Fallback Node -->
+                        <circle cx="1070" cy="220" r="20" class="node-circle"/>
+                        <text x="1070" y="260" text-anchor="middle" class="node-label">Fallback</text>
+                        <text x="1070" y="275" text-anchor="middle" class="node-sublabel">(Basic Justification)</text>
+
+                        <!-- Arrow: AI No to Fallback -->
+                        <line x1="1070" y1="150" x2="1070" y2="200" class="arrow-line"/>
+                        <text x="1085" y="175" class="edge-label">No</text>
+
+                        <!-- Arrow: Fallback to Categorize -->
+                        <path d="M 1090 220 Q 1150 220 1220 180" class="arrow-line"/>
+
+                        <!-- Arrow: Generate to Categorize -->
+                        <line x1="1220" y1="145" x2="1220" y2="320" class="arrow-line"/>
+                        <text x="1235" y="235" class="data-label">[justification]</text>
+
+                        <!-- Categorize Diamond -->
+                        <polygon points="1180,360 1220,320 1260,360 1220,400" class="node-diamond"/>
+                        <text x="1220" y="300" text-anchor="middle" class="node-label">Categorize</text>
+                        <text x="1220" y="315" text-anchor="middle" class="node-sublabel">(Decision)</text>
+
+                        <!-- ACCEPTED outcome -->
+                        <circle cx="1320" cy="320" r="20" class="outcome-accepted"/>
+                        <text x="1320" y="325" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">ACC</text>
+                        <text x="1320" y="355" text-anchor="middle" class="node-sublabel">ACCEPTED</text>
+                        <line x1="1260" y1="345" x2="1300" y2="325" class="arrow-line"/>
+
+                        <!-- REJECTED outcome -->
+                        <circle cx="1320" cy="400" r="20" class="outcome-rejected"/>
+                        <text x="1320" y="405" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">REJ</text>
+                        <text x="1320" y="435" text-anchor="middle" class="node-sublabel">REJECTED</text>
+                        <line x1="1260" y1="375" x2="1300" y2="395" class="arrow-line"/>
+
+                        <!-- RECONSIDER outcome -->
+                        <circle cx="1120" cy="400" r="20" class="outcome-reconsider"/>
+                        <text x="1120" y="405" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">REC</text>
+                        <text x="1120" y="435" text-anchor="middle" class="node-sublabel">RECONSIDER</text>
+                        <line x1="1195" y1="385" x2="1140" y2="395" class="arrow-line"/>
+
+                        <!-- Merge arrows to Export -->
+                        <path d="M 1320 340 L 1320 500 L 700 500" class="arrow-line" style="marker-end: none;"/>
+                        <path d="M 1320 420 L 1320 500" stroke="#333" stroke-width="1.5" fill="none"/>
+                        <path d="M 1120 420 L 1120 500 L 700 500" stroke="#333" stroke-width="1.5" fill="none"/>
+
+                        <!-- Export Node -->
+                        <circle cx="650" cy="500" r="25" class="node-circle"/>
+                        <polygon points="655,495 675,500 655,505" fill="#333"/>
+                        <text x="650" y="450" text-anchor="middle" class="node-label">Export</text>
+                        <text x="650" y="465" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+                        <!-- Arrow: Export to Format Check -->
+                        <line x1="625" y1="500" x2="530" y2="500" class="arrow-line"/>
+                        <text x="575" y="490" text-anchor="middle" class="data-label">[results]</text>
+
+                        <!-- Format Diamond -->
+                        <polygon points="450,500 490,470 530,500 490,530" class="node-diamond"/>
+                        <text x="490" y="450" text-anchor="middle" class="node-label">Format</text>
+                        <text x="490" y="465" text-anchor="middle" class="node-sublabel">(Selection)</text>
+
+                        <!-- XLSX output -->
+                        <rect x="340" y="430" width="60" height="25" rx="5" fill="#217346"/>
+                        <text x="370" y="448" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.xlsx</text>
+                        <line x1="450" y1="485" x2="400" y2="455" class="arrow-line"/>
+
+                        <!-- CSV output -->
+                        <rect x="340" y="490" width="60" height="25" rx="5" fill="#2E86AB"/>
+                        <text x="370" y="508" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.csv</text>
+                        <line x1="450" y1="500" x2="400" y2="502" class="arrow-line"/>
+
+                        <!-- JSON output -->
+                        <rect x="340" y="550" width="60" height="25" rx="5" fill="#6c757d"/>
+                        <text x="370" y="568" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.json</text>
+                        <line x1="450" y1="515" x2="400" y2="555" class="arrow-line"/>
+
+                        <!-- Final outputs arrow -->
+                        <line x1="340" y1="445" x2="250" y2="445" class="arrow-line"/>
+                        <line x1="340" y1="502" x2="250" y2="502" class="arrow-line"/>
+                        <line x1="340" y1="562" x2="250" y2="562" class="arrow-line"/>
+
+                        <!-- Download Node -->
+                        <circle cx="200" cy="502" r="30" class="node-circle"/>
+                        <text x="200" y="507" text-anchor="middle" fill="white" style="font-size: 12px; font-weight: bold;">Download</text>
+                    </svg>
+                </div>
+            </div>
+
+            <div id="mermaid-tab" class="tab-content">
+                <div class="mermaid-container">
+                    <pre class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#5DADE2', 'primaryTextColor': '#fff', 'primaryBorderColor': '#5DADE2', 'lineColor': '#333', 'secondaryColor': '#F5B7B1', 'tertiaryColor': '#f8f9fa'}}}%%
+
+flowchart TB
+    subgraph upload_phase[" Phase 1: Data Upload "]
+        A((Upload)) -->|.xlsx file| B{Validate Data}
+        B -->|Valid| C((Define Rules))
+        B -->|Invalid| D((Show Errors))
+        D -->|Fix & Retry| A
+    end
+
+    subgraph rules_phase[" Phase 2: Rule Configuration "]
+        C -->|ruleset| E{Preview}
+        E -->|Confirm| F((Process))
+        E -->|Edit| C
+    end
+
+    subgraph process_phase[" Phase 3: Processing "]
+        F -->|rows| G((Evaluate Rules))
+        G -->|decision| H{AI Available?}
+        H -->|Yes| I((Generate AI))
+        H -->|No| J((Fallback))
+        I -->|justification| K{Categorize}
+        J --> K
+    end
+
+    subgraph categorize_phase[" Phase 4: Categorization "]
+        K -->|High Confidence| L((ACCEPTED))
+        K -->|Low Score| M((REJECTED))
+        K -->|Uncertain| N((RECONSIDER))
+    end
+
+    subgraph export_phase[" Phase 5: Export "]
+        L --> O((Export))
+        M --> O
+        N --> O
+        O --> P{Format}
+        P -->|Excel| Q[.xlsx]
+        P -->|CSV| R[.csv]
+        P -->|JSON| S[.json]
+        Q --> T((Download))
+        R --> T
+        S --> T
+    end
+
+    classDef nodeStyle fill:#5DADE2,stroke:#5DADE2,color:#fff
+    classDef decisionStyle fill:#F5B7B1,stroke:#F5B7B1,color:#333
+    classDef acceptedStyle fill:#28a745,stroke:#28a745,color:#fff
+    classDef rejectedStyle fill:#dc3545,stroke:#dc3545,color:#fff
+    classDef reconsiderStyle fill:#ffc107,stroke:#ffc107,color:#333
+    classDef outputStyle fill:#6c757d,stroke:#6c757d,color:#fff
+
+    class A,C,D,F,G,I,J,O,T nodeStyle
+    class B,E,H,K,P decisionStyle
+    class L acceptedStyle
+    class M rejectedStyle
+    class N reconsiderStyle
+    class Q,R,S outputStyle
+                    </pre>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-node node-blue"></div>
+                    <span class="legend-label">Process Node</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-diamond node-pink"></div>
+                    <span class="legend-label">Conditional Edge</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-node node-green"></div>
+                    <span class="legend-label">ACCEPTED</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-node node-red"></div>
+                    <span class="legend-label">REJECTED</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-node node-yellow"></div>
+                    <span class="legend-label">RECONSIDER</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-rect node-gray"></div>
+                    <span class="legend-label">Export Format</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>Process Phases Description</h2>
+            <p class="diagram-description">Detailed breakdown of each phase in the MWCS pipeline.</p>
+
+            <div class="phase-cards">
+                <div class="phase-card" style="border-left-color: #5DADE2;">
+                    <h3>Phase 1: Data Upload</h3>
+                    <p>User uploads Excel workbook containing maintenance work items.</p>
+                    <ul>
+                        <li>Schema detection</li>
+                        <li>Column validation</li>
+                        <li>Data preview (10 rows)</li>
+                        <li>Supporting dataset loading</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card" style="border-left-color: #17a2b8;">
+                    <h3>Phase 2: Rule Configuration</h3>
+                    <p>Define categorization rules using the visual rule builder.</p>
+                    <ul>
+                        <li>Numeric comparisons</li>
+                        <li>Text matching & regex</li>
+                        <li>Date operations</li>
+                        <li>Lookup & aggregation</li>
+                        <li>IF-THEN-ELSE chains</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card" style="border-left-color: #6f42c1;">
+                    <h3>Phase 3: Processing</h3>
+                    <p>Execute rule evaluation and generate justifications.</p>
+                    <ul>
+                        <li>Logic engine evaluation</li>
+                        <li>Rule priority handling</li>
+                        <li>AI justification (Claude/GPT)</li>
+                        <li>Confidence scoring</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card" style="border-left-color: #28a745;">
+                    <h3>Phase 4: Categorization</h3>
+                    <p>Assign final status to each work item.</p>
+                    <ul>
+                        <li><strong>ACCEPTED</strong> - Approved for execution</li>
+                        <li><strong>REJECTED</strong> - Not approved</li>
+                        <li><strong>RECONSIDER</strong> - Manual review needed</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card" style="border-left-color: #fd7e14;">
+                    <h3>Phase 5: Export</h3>
+                    <p>Download results with full audit trail.</p>
+                    <ul>
+                        <li>Excel (.xlsx) with formatting</li>
+                        <li>CSV (UTF-8) for data tools</li>
+                        <li>JSON for integration</li>
+                        <li>Audit metadata included</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>MWCS - Maintenance Work Categorization System | Flow Diagrams v1.0</p>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#5DADE2',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#5DADE2',
+                lineColor: '#333',
+                secondaryColor: '#F5B7B1'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+
+        // Tab switching
+        function showTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

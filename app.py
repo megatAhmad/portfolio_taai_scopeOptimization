@@ -743,6 +743,9 @@ def render_supporting_datasets():
         "Decision Matrix"
     ])
 
+    # Ensure dataset_manager is initialized
+    if st.session_state.dataset_manager is None:
+        st.session_state.dataset_manager = SupportingDatasetManager()
     dm = st.session_state.dataset_manager
 
     with tab1:

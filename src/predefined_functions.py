@@ -58,12 +58,12 @@ class FunctionRegistry:
         return cls._functions.get(name)
 
     @classmethod
-    def list_functions(cls) -> list[dict[str, Any]]:
-        """List all registered functions."""
-        return [
-            {k: v for k, v in entry.items() if k != "function"}
-            for entry in cls._functions.values()
-        ]
+    def list_functions(cls) -> dict[str, dict[str, Any]]:
+        """List all registered functions as a dict keyed by function name."""
+        return {
+            name: {k: v for k, v in entry.items() if k != "function"}
+            for name, entry in cls._functions.items()
+        }
 
     @classmethod
     def list_by_category(cls) -> dict[str, list[dict[str, Any]]]:
@@ -621,3 +621,7 @@ def execute_function(
 ) -> tuple[bool, dict[str, Any]]:
     """Execute a predefined function."""
     return FunctionRegistry.execute(name, row, params)
+
+
+# Module-level instance for convenient access
+function_registry = FunctionRegistry()

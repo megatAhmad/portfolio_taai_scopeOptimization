@@ -140,6 +140,74 @@ class ConditionRule:
     enabled: bool = True
     description: str = ""
 
+    @property
+    def rule_id(self) -> str:
+        """Alias for id."""
+        return self.id
+
+    @property
+    def rule_type(self) -> "RuleType":
+        """Return the rule type."""
+        return RuleType.CONDITION
+
+    @property
+    def outcome(self) -> str:
+        """Alias for outcome_on_match value."""
+        return self.outcome_on_match.value
+
+    @property
+    def column(self) -> str:
+        """Get the column from the first condition."""
+        if self.conditions and self.conditions.conditions:
+            first = self.conditions.conditions[0]
+            if isinstance(first, Condition):
+                return first.field
+        return ""
+
+    @property
+    def operator(self) -> ConditionOperator:
+        """Get the operator from the first condition."""
+        if self.conditions and self.conditions.conditions:
+            first = self.conditions.conditions[0]
+            if isinstance(first, Condition):
+                return first.operator
+        return ConditionOperator.EQUALS
+
+    @property
+    def value(self) -> Any:
+        """Get the value from the first condition."""
+        if self.conditions and self.conditions.conditions:
+            first = self.conditions.conditions[0]
+            if isinstance(first, Condition):
+                return first.value
+        return None
+
+    @classmethod
+    def create_simple(
+        cls,
+        rule_id: str,
+        name: str,
+        column: str,
+        operator: ConditionOperator,
+        value: Any,
+        outcome: str = "RECONSIDER",
+        description: str = "",
+        priority: int = 0,
+        enabled: bool = True,
+    ) -> "ConditionRule":
+        """Create a simple condition rule with a single condition."""
+        condition = Condition(field=column, operator=operator, value=value)
+        condition_group = ConditionGroup(conditions=[condition])
+        return cls(
+            id=rule_id,
+            name=name,
+            conditions=condition_group,
+            outcome_on_match=RuleOutcome(outcome),
+            priority=priority,
+            enabled=enabled,
+            description=description,
+        )
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -179,6 +247,45 @@ class FunctionRule:
     priority: int = 0
     enabled: bool = True
     description: str = ""
+
+    @property
+    def rule_id(self) -> str:
+        """Alias for id."""
+        return self.id
+
+    @property
+    def rule_type(self) -> "RuleType":
+        """Return the rule type."""
+        return RuleType.FUNCTION
+
+    @property
+    def outcome(self) -> str:
+        """Alias for outcome_on_match value."""
+        return self.outcome_on_match.value
+
+    @classmethod
+    def create_simple(
+        cls,
+        rule_id: str,
+        name: str,
+        function_name: str,
+        parameters: dict[str, Any],
+        outcome: str = "RECONSIDER",
+        description: str = "",
+        priority: int = 0,
+        enabled: bool = True,
+    ) -> "FunctionRule":
+        """Create a function rule with simplified parameters."""
+        return cls(
+            id=rule_id,
+            name=name,
+            function_name=function_name,
+            parameters=parameters,
+            outcome_on_match=RuleOutcome(outcome),
+            priority=priority,
+            enabled=enabled,
+            description=description,
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -223,6 +330,50 @@ class AIGeneratedRule:
     description: str = ""
     last_generated: Optional[str] = None
     generation_model: str = ""
+
+    @property
+    def rule_id(self) -> str:
+        """Alias for id."""
+        return self.id
+
+    @property
+    def rule_type(self) -> "RuleType":
+        """Return the rule type."""
+        return RuleType.AI_GENERATED
+
+    @property
+    def outcome(self) -> str:
+        """Alias for outcome_on_match value."""
+        return self.outcome_on_match.value
+
+    @property
+    def model(self) -> str:
+        """Alias for generation_model."""
+        return self.generation_model
+
+    @classmethod
+    def create_simple(
+        cls,
+        rule_id: str,
+        name: str,
+        prompt: str,
+        outcome: str = "RECONSIDER",
+        description: str = "",
+        priority: int = 0,
+        enabled: bool = True,
+        model: str = "gpt-4",
+    ) -> "AIGeneratedRule":
+        """Create an AI rule with simplified parameters."""
+        return cls(
+            id=rule_id,
+            name=name,
+            prompt=prompt,
+            outcome_on_match=RuleOutcome(outcome),
+            priority=priority,
+            enabled=enabled,
+            description=description,
+            generation_model=model,
+        )
 
     def to_dict(self) -> dict:
         return {

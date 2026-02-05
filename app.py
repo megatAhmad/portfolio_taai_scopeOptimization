@@ -509,7 +509,7 @@ def render_condition_rule_builder():
                 except ValueError:
                     parsed_value = value
 
-                rule = ConditionRule(
+                rule = ConditionRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
                     column=column,
@@ -528,7 +528,7 @@ def render_condition_rule_builder():
     # Display existing condition rules
     st.divider()
     st.subheader("Existing Condition Rules")
-    condition_rules = [r for r in st.session_state.enhanced_rule_engine.rules
+    condition_rules = [r for r in st.session_state.enhanced_rule_engine.rules.values()
                        if r.rule_type == EnhancedRuleType.CONDITION]
 
     if not condition_rules:
@@ -611,7 +611,7 @@ def render_function_rule_builder():
 
         if submitted and rule_name and function_name:
             try:
-                rule = FunctionRule(
+                rule = FunctionRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
                     function_name=function_name,
@@ -629,7 +629,7 @@ def render_function_rule_builder():
     # Display existing function rules
     st.divider()
     st.subheader("Existing Function Rules")
-    function_rules = [r for r in st.session_state.enhanced_rule_engine.rules
+    function_rules = [r for r in st.session_state.enhanced_rule_engine.rules.values()
                       if r.rule_type == EnhancedRuleType.FUNCTION]
 
     if not function_rules:
@@ -691,7 +691,7 @@ def render_ai_rule_builder():
 
         if submitted and rule_name and prompt:
             try:
-                rule = AIGeneratedRule(
+                rule = AIGeneratedRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
                     prompt=prompt,
@@ -709,7 +709,7 @@ def render_ai_rule_builder():
     # Display existing AI rules
     st.divider()
     st.subheader("Existing AI Rules")
-    ai_rules = [r for r in st.session_state.enhanced_rule_engine.rules
+    ai_rules = [r for r in st.session_state.enhanced_rule_engine.rules.values()
                 if r.rule_type == EnhancedRuleType.AI_GENERATED]
 
     if not ai_rules:
@@ -811,11 +811,11 @@ def render_enhanced_rule_config():
         st.markdown("**Current Configuration**")
         summary = {
             "Total Rules": len(st.session_state.enhanced_rule_engine.rules),
-            "Condition Rules": len([r for r in st.session_state.enhanced_rule_engine.rules
+            "Condition Rules": len([r for r in st.session_state.enhanced_rule_engine.rules.values()
                                    if r.rule_type == EnhancedRuleType.CONDITION]),
-            "Function Rules": len([r for r in st.session_state.enhanced_rule_engine.rules
+            "Function Rules": len([r for r in st.session_state.enhanced_rule_engine.rules.values()
                                   if r.rule_type == EnhancedRuleType.FUNCTION]),
-            "AI Rules": len([r for r in st.session_state.enhanced_rule_engine.rules
+            "AI Rules": len([r for r in st.session_state.enhanced_rule_engine.rules.values()
                             if r.rule_type == EnhancedRuleType.AI_GENERATED]),
             "Connections": len(st.session_state.enhanced_rule_engine.connections),
         }
@@ -834,7 +834,7 @@ def render_enhanced_rule_config():
                 cm.new_config(config_name)
 
                 # Sync rules to config manager
-                for rule in st.session_state.enhanced_rule_engine.rules:
+                for rule in st.session_state.enhanced_rule_engine.rules.values():
                     if rule.rule_type == EnhancedRuleType.CONDITION:
                         cm.add_condition_rule(
                             rule.rule_id, rule.name, rule.column,
@@ -879,7 +879,7 @@ def render_enhanced_rule_config():
     with st.form("add_connection_form"):
         col1, col2, col3 = st.columns(3)
 
-        rule_ids = ["START"] + [r.rule_id for r in st.session_state.enhanced_rule_engine.rules]
+        rule_ids = ["START"] + [r.rule_id for r in st.session_state.enhanced_rule_engine.rules.values()]
 
         with col1:
             from_rule = st.selectbox("From Rule", options=rule_ids)
@@ -890,8 +890,11 @@ def render_enhanced_rule_config():
 
         if st.form_submit_button("Add Connection"):
             try:
+                import uuid
+                conn_id = f"conn_{uuid.uuid4().hex[:8]}"
                 connection = RuleConnection(
-                    from_rule_id=from_rule,
+                    id=conn_id,
+                    from_rule_id=from_rule if from_rule != "START" else None,
                     to_rule_id=to_rule,
                     condition=condition
                 )
@@ -904,8 +907,9 @@ def render_enhanced_rule_config():
     # Show existing connections
     if st.session_state.enhanced_rule_engine.connections:
         st.markdown("**Existing Connections:**")
-        for conn in st.session_state.enhanced_rule_engine.connections:
-            st.markdown(f"- {conn.from_rule_id} → {conn.to_rule_id} (on {conn.condition})")
+        for conn in st.session_state.enhanced_rule_engine.connections.values():
+            from_display = conn.from_rule_id if conn.from_rule_id else "START"
+            st.markdown(f"- {from_display} → {conn.to_rule_id} (on {conn.condition})")
 
 
 def render_preview_step():

@@ -461,6 +461,28 @@ class SupportingDatasetManager:
             "decision_rules": len(self.decision_matrix),
         }
 
+    def generate_equipment_classification_sample(self) -> pd.DataFrame:
+        """Generate sample equipment classification data for display."""
+        return generate_sample_equipment_classification(15)
+
+    def generate_work_type_sample(self) -> pd.DataFrame:
+        """Generate sample work type categorization data for display."""
+        return generate_sample_work_type_categorization()
+
+    def generate_redundancy_sample(self) -> pd.DataFrame:
+        """Generate sample equipment redundancy data for display."""
+        return generate_sample_equipment_redundancy(15)
+
+    def get_decision_from_matrix(
+        self,
+        equipment_class: EquipmentClassification,
+        work_type: WorkTypeCategory,
+    ) -> DecisionCategory:
+        """Get decision from matrix for given classifications."""
+        return self._apply_decision_matrix(
+            equipment_class, work_type, EquipmentRedundancy.UNCERTAIN
+        )
+
 
 def generate_sample_equipment_classification(num_assets: int = 50) -> pd.DataFrame:
     """Generate sample equipment classification data."""

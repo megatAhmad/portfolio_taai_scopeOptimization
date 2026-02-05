@@ -465,22 +465,42 @@ def render_processing_step():
         if use_ai:
             ai_provider = st.selectbox(
                 "AI Provider",
-                options=["anthropic", "openai"],
-                format_func=lambda x: x.title(),
+                options=["azure_openai", "openrouter"],
+                format_func=lambda x: "Azure OpenAI" if x == "azure_openai" else "OpenRouter",
             )
 
     with col2:
         if use_ai:
-            api_key_env = "ANTHROPIC_API_KEY" if ai_provider == "anthropic" else "OPENAI_API_KEY"
-            has_key = os.environ.get(api_key_env) is not None
+            if ai_provider == "azure_openai":
+                api_key_env = "AZURE_OPENAI_API_KEY"
+                endpoint_env = "AZURE_OPENAI_ENDPOINT"
+                has_key = os.environ.get(api_key_env) is not None
+                has_endpoint = os.environ.get(endpoint_env) is not None
 
-            if has_key:
-                st.success(f"{api_key_env} is configured")
+                if has_key and has_endpoint:
+                    st.success("Azure OpenAI is configured")
+                else:
+                    if not has_key:
+                        st.warning(f"{api_key_env} not found in environment")
+                    if not has_endpoint:
+                        st.warning(f"{endpoint_env} not found in environment")
+                    manual_key = st.text_input("Enter Azure API Key", type="password")
+                    manual_endpoint = st.text_input("Enter Azure Endpoint")
+                    if manual_key:
+                        os.environ[api_key_env] = manual_key
+                    if manual_endpoint:
+                        os.environ[endpoint_env] = manual_endpoint
             else:
-                st.warning(f"{api_key_env} not found in environment")
-                manual_key = st.text_input("Enter API Key", type="password")
-                if manual_key:
-                    os.environ[api_key_env] = manual_key
+                api_key_env = "OPENROUTER_API_KEY"
+                has_key = os.environ.get(api_key_env) is not None
+
+                if has_key:
+                    st.success("OpenRouter is configured")
+                else:
+                    st.warning(f"{api_key_env} not found in environment")
+                    manual_key = st.text_input("Enter OpenRouter API Key", type="password")
+                    if manual_key:
+                        os.environ[api_key_env] = manual_key
 
     st.divider()
 
@@ -538,7 +558,7 @@ def render_processing_step():
                         JustificationResult(
                             justification=fallback_text,
                             confidence_score=eval_result.score,
-                            provider=AIProvider.ANTHROPIC,
+                            provider=AIProvider.AZURE_OPENAI,
                             model="fallback",
                         )
                     )
@@ -559,7 +579,7 @@ def render_processing_step():
                     JustificationResult(
                         justification=fallback_text,
                         confidence_score=eval_result.score,
-                        provider=AIProvider.ANTHROPIC,
+                        provider=AIProvider.AZURE_OPENAI,
                         model="fallback",
                     )
                 )

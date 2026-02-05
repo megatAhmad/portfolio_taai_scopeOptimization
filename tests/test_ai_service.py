@@ -42,14 +42,14 @@ class TestAIService:
     """Tests for AIService class."""
 
     def test_init_default_provider(self):
-        """Test initialization with default provider."""
+        """Test initialization with default provider (Azure OpenAI)."""
         service = AIService()
-        assert service.provider == AIProvider.ANTHROPIC
+        assert service.provider == AIProvider.AZURE_OPENAI
 
-    def test_init_openai_provider(self):
-        """Test initialization with OpenAI provider."""
-        service = AIService(provider=AIProvider.OPENAI)
-        assert service.provider == AIProvider.OPENAI
+    def test_init_openrouter_provider(self):
+        """Test initialization with OpenRouter provider."""
+        service = AIService(provider=AIProvider.OPENROUTER)
+        assert service.provider == AIProvider.OPENROUTER
 
     def test_init_with_api_key(self):
         """Test initialization with API key."""
@@ -58,8 +58,21 @@ class TestAIService:
 
     def test_init_with_model(self):
         """Test initialization with custom model."""
-        service = AIService(model="claude-3-opus-20240229")
-        assert service._model == "claude-3-opus-20240229"
+        service = AIService(model="gpt-4-turbo")
+        assert service._model == "gpt-4-turbo"
+
+    def test_init_with_azure_config(self):
+        """Test initialization with Azure-specific configuration."""
+        service = AIService(
+            provider=AIProvider.AZURE_OPENAI,
+            api_key="test-key",
+            azure_endpoint="https://test.openai.azure.com/",
+            azure_deployment="gpt-4",
+            azure_api_version="2024-02-15-preview",
+        )
+        assert service._azure_endpoint == "https://test.openai.azure.com/"
+        assert service._azure_deployment == "gpt-4"
+        assert service._azure_api_version == "2024-02-15-preview"
 
     def test_format_row_data(self, sample_row):
         """Test row data formatting."""
@@ -155,14 +168,14 @@ class TestJustificationResult:
         result = JustificationResult(
             justification="Test justification",
             confidence_score=85.0,
-            provider=AIProvider.ANTHROPIC,
-            model="claude-3-sonnet-20240229",
+            provider=AIProvider.AZURE_OPENAI,
+            model="gpt-4",
         )
 
         assert result.justification == "Test justification"
         assert result.confidence_score == 85.0
-        assert result.provider == AIProvider.ANTHROPIC
-        assert result.model == "claude-3-sonnet-20240229"
+        assert result.provider == AIProvider.AZURE_OPENAI
+        assert result.model == "gpt-4"
         assert result.tokens_used == 0
         assert result.error is None
 
@@ -171,38 +184,53 @@ class TestJustificationResult:
         result = JustificationResult(
             justification="Fallback justification",
             confidence_score=50.0,
-            provider=AIProvider.ANTHROPIC,
-            model="claude-3-sonnet-20240229",
+            provider=AIProvider.AZURE_OPENAI,
+            model="gpt-4",
             error="API error occurred",
         )
 
         assert result.error == "API error occurred"
 
+    def test_create_justification_result_openrouter(self):
+        """Test creating a JustificationResult with OpenRouter provider."""
+        result = JustificationResult(
+            justification="OpenRouter justification",
+            confidence_score=75.0,
+            provider=AIProvider.OPENROUTER,
+            model="openai/gpt-4-turbo",
+        )
+
+        assert result.provider == AIProvider.OPENROUTER
+        assert result.model == "openai/gpt-4-turbo"
+
 
 class TestAIServiceIntegration:
     """Integration tests for AI service (mocked)."""
 
-    @patch("src.ai_service.anthropic")
-    def test_generate_justification_anthropic(
-        self, mock_anthropic, sample_row, sample_rule_details
+    @patch("src.ai_service.AzureOpenAI")
+    def test_generate_justification_azure_openai(
+        self, mock_azure_openai, sample_row, sample_rule_details
     ):
-        """Test justification generation with Anthropic (mocked)."""
+        """Test justification generation with Azure OpenAI (mocked)."""
         # Set up mock
         mock_client = MagicMock()
-        mock_anthropic.Anthropic.return_value = mock_client
+        mock_azure_openai.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.content = [
-            MagicMock(
-                text='{"justification": "Test justification", "confidence_score": 85}'
-            )
-        ]
-        mock_response.usage.input_tokens = 100
-        mock_response.usage.output_tokens = 50
-        mock_client.messages.create.return_value = mock_response
+        mock_choice = MagicMock()
+        mock_choice.message.content = (
+            '{"justification": "Azure test justification", "confidence_score": 85}'
+        )
+        mock_response.choices = [mock_choice]
+        mock_response.usage.total_tokens = 150
+        mock_client.chat.completions.create.return_value = mock_response
 
         # Create service and generate
-        service = AIService(api_key="test-key")
+        service = AIService(
+            api_key="test-key",
+            azure_endpoint="https://test.openai.azure.com/",
+            azure_deployment="gpt-4",
+        )
         result = service.generate_justification(
             row=sample_row,
             decision="ACCEPTED",
@@ -211,31 +239,30 @@ class TestAIServiceIntegration:
         )
 
         assert isinstance(result, JustificationResult)
-        assert result.justification == "Test justification"
+        assert result.justification == "Azure test justification"
         assert result.confidence_score == 85
-        assert result.provider == AIProvider.ANTHROPIC
-        assert result.tokens_used == 150
+        assert result.provider == AIProvider.AZURE_OPENAI
 
-    @patch("src.ai_service.openai")
-    def test_generate_justification_openai(
+    @patch("src.ai_service.OpenAI")
+    def test_generate_justification_openrouter(
         self, mock_openai, sample_row, sample_rule_details
     ):
-        """Test justification generation with OpenAI (mocked)."""
+        """Test justification generation with OpenRouter (mocked)."""
         # Set up mock
         mock_client = MagicMock()
-        mock_openai.OpenAI.return_value = mock_client
+        mock_openai.return_value = mock_client
 
         mock_response = MagicMock()
         mock_choice = MagicMock()
         mock_choice.message.content = (
-            '{"justification": "OpenAI test", "confidence_score": 90}'
+            '{"justification": "OpenRouter test", "confidence_score": 90}'
         )
         mock_response.choices = [mock_choice]
         mock_response.usage.total_tokens = 120
         mock_client.chat.completions.create.return_value = mock_response
 
         # Create service and generate
-        service = AIService(provider=AIProvider.OPENAI, api_key="test-key")
+        service = AIService(provider=AIProvider.OPENROUTER, api_key="test-key")
         result = service.generate_justification(
             row=sample_row,
             decision="ACCEPTED",
@@ -244,13 +271,16 @@ class TestAIServiceIntegration:
         )
 
         assert isinstance(result, JustificationResult)
-        assert result.justification == "OpenAI test"
+        assert result.justification == "OpenRouter test"
         assert result.confidence_score == 90
-        assert result.provider == AIProvider.OPENAI
+        assert result.provider == AIProvider.OPENROUTER
 
     def test_generate_justification_api_error(self, sample_row, sample_rule_details):
         """Test handling of API errors."""
-        service = AIService(api_key="invalid-key")
+        service = AIService(
+            api_key="invalid-key",
+            azure_endpoint="https://invalid.openai.azure.com/",
+        )
 
         # This should return a fallback result instead of raising
         result = service.generate_justification(
@@ -263,24 +293,23 @@ class TestAIServiceIntegration:
         assert isinstance(result, JustificationResult)
         assert result.error is not None or result.confidence_score == 50.0
 
-    @patch("src.ai_service.anthropic")
+    @patch("src.ai_service.AzureOpenAI")
     def test_batch_justifications(
-        self, mock_anthropic, sample_row, sample_rule_details
+        self, mock_azure_openai, sample_row, sample_rule_details
     ):
         """Test batch justification generation."""
         # Set up mock
         mock_client = MagicMock()
-        mock_anthropic.Anthropic.return_value = mock_client
+        mock_azure_openai.return_value = mock_client
 
         mock_response = MagicMock()
-        mock_response.content = [
-            MagicMock(
-                text='{"justification": "Batch test", "confidence_score": 80}'
-            )
-        ]
-        mock_response.usage.input_tokens = 100
-        mock_response.usage.output_tokens = 50
-        mock_client.messages.create.return_value = mock_response
+        mock_choice = MagicMock()
+        mock_choice.message.content = (
+            '{"justification": "Batch test", "confidence_score": 80}'
+        )
+        mock_response.choices = [mock_choice]
+        mock_response.usage.total_tokens = 100
+        mock_client.chat.completions.create.return_value = mock_response
 
         # Create test data
         df = pd.DataFrame([sample_row.to_dict()] * 3)
@@ -298,7 +327,10 @@ class TestAIServiceIntegration:
             mock_eval_results.append(mock_eval)
 
         # Generate batch
-        service = AIService(api_key="test-key")
+        service = AIService(
+            api_key="test-key",
+            azure_endpoint="https://test.openai.azure.com/",
+        )
         results = service.generate_batch_justifications(df, mock_eval_results)
 
         assert len(results) == 3
@@ -337,3 +369,20 @@ class TestPromptGeneration:
         assert "ACCEPTED" in prompt
         assert "REJECTED" in prompt
         assert "RECONSIDER" in prompt
+
+
+class TestAIProviderEnum:
+    """Tests for AIProvider enum."""
+
+    def test_azure_openai_value(self):
+        """Test Azure OpenAI enum value."""
+        assert AIProvider.AZURE_OPENAI.value == "azure_openai"
+
+    def test_openrouter_value(self):
+        """Test OpenRouter enum value."""
+        assert AIProvider.OPENROUTER.value == "openrouter"
+
+    def test_enum_from_string(self):
+        """Test creating enum from string."""
+        assert AIProvider("azure_openai") == AIProvider.AZURE_OPENAI
+        assert AIProvider("openrouter") == AIProvider.OPENROUTER

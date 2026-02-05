@@ -1,5 +1,5 @@
 """
-AI Service for MWCS - generates justifications using Anthropic Claude or OpenAI.
+AI Service for MWCS - generates justifications using Azure OpenAI (primary) or OpenRouter (fallback).
 """
 
 import logging
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class AIProvider(str, Enum):
     """Supported AI providers."""
 
-    ANTHROPIC = "anthropic"
-    OPENAI = "openai"
+    AZURE_OPENAI = "azure_openai"
+    OPENROUTER = "openrouter"
 
 
 @dataclass
@@ -65,47 +65,85 @@ Provide your response:"""
 
     def __init__(
         self,
-        provider: AIProvider = AIProvider.ANTHROPIC,
+        provider: AIProvider = AIProvider.AZURE_OPENAI,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        azure_endpoint: Optional[str] = None,
+        azure_deployment: Optional[str] = None,
+        azure_api_version: Optional[str] = None,
     ):
-        """Initialize the AI service."""
+        """Initialize the AI service.
+
+        Args:
+            provider: AI provider to use (AZURE_OPENAI or OPENROUTER)
+            api_key: API key (or use environment variable)
+            model: Model name (for OpenRouter)
+            azure_endpoint: Azure OpenAI endpoint URL
+            azure_deployment: Azure OpenAI deployment name
+            azure_api_version: Azure OpenAI API version
+        """
         self.provider = provider
         self._api_key = api_key
         self._model = model
+        self._azure_endpoint = azure_endpoint
+        self._azure_deployment = azure_deployment
+        self._azure_api_version = azure_api_version or "2024-02-15-preview"
         self._client = None
 
         # Set defaults based on provider
-        if self.provider == AIProvider.ANTHROPIC:
-            self._default_model = "claude-3-sonnet-20240229"
+        if self.provider == AIProvider.AZURE_OPENAI:
+            self._default_model = "gpt-4"  # Deployment name in Azure
         else:
-            self._default_model = "gpt-4-turbo-preview"
+            self._default_model = "openai/gpt-4-turbo"  # OpenRouter model path
 
     def _get_api_key(self) -> str:
         """Get API key from parameter or environment."""
         if self._api_key:
             return self._api_key
 
-        if self.provider == AIProvider.ANTHROPIC:
-            key = os.environ.get("ANTHROPIC_API_KEY")
+        if self.provider == AIProvider.AZURE_OPENAI:
+            key = os.environ.get("AZURE_OPENAI_API_KEY")
+            if not key:
+                raise ValueError(
+                    "API key not found. Set AZURE_OPENAI_API_KEY environment variable."
+                )
         else:
-            key = os.environ.get("OPENAI_API_KEY")
-
-        if not key:
-            raise ValueError(
-                f"API key not found. Set {self.provider.value.upper()}_API_KEY environment variable."
-            )
+            key = os.environ.get("OPENROUTER_API_KEY")
+            if not key:
+                raise ValueError(
+                    "API key not found. Set OPENROUTER_API_KEY environment variable."
+                )
         return key
+
+    def _get_azure_endpoint(self) -> str:
+        """Get Azure OpenAI endpoint from parameter or environment."""
+        if self._azure_endpoint:
+            return self._azure_endpoint
+
+        endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+        if not endpoint:
+            raise ValueError(
+                "Azure endpoint not found. Set AZURE_OPENAI_ENDPOINT environment variable."
+            )
+        return endpoint
+
+    def _get_azure_deployment(self) -> str:
+        """Get Azure OpenAI deployment name from parameter or environment."""
+        if self._azure_deployment:
+            return self._azure_deployment
+
+        deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", self._default_model)
+        return deployment
 
     def _get_model(self) -> str:
         """Get model name from parameter or environment."""
         if self._model:
             return self._model
 
-        if self.provider == AIProvider.ANTHROPIC:
-            return os.environ.get("ANTHROPIC_MODEL", self._default_model)
+        if self.provider == AIProvider.AZURE_OPENAI:
+            return self._get_azure_deployment()
         else:
-            return os.environ.get("OPENAI_MODEL", self._default_model)
+            return os.environ.get("OPENROUTER_MODEL", self._default_model)
 
     def _init_client(self) -> None:
         """Initialize the API client."""
@@ -114,18 +152,26 @@ Provide your response:"""
 
         api_key = self._get_api_key()
 
-        if self.provider == AIProvider.ANTHROPIC:
+        if self.provider == AIProvider.AZURE_OPENAI:
             try:
-                import anthropic
+                from openai import AzureOpenAI
 
-                self._client = anthropic.Anthropic(api_key=api_key)
+                self._client = AzureOpenAI(
+                    api_key=api_key,
+                    api_version=self._azure_api_version,
+                    azure_endpoint=self._get_azure_endpoint(),
+                )
             except ImportError:
-                raise ImportError("anthropic package not installed. Run: pip install anthropic")
+                raise ImportError("openai package not installed. Run: pip install openai")
         else:
+            # OpenRouter uses OpenAI-compatible API
             try:
-                import openai
+                from openai import OpenAI
 
-                self._client = openai.OpenAI(api_key=api_key)
+                self._client = OpenAI(
+                    api_key=api_key,
+                    base_url="https://openrouter.ai/api/v1",
+                )
             except ImportError:
                 raise ImportError("openai package not installed. Run: pip install openai")
 
@@ -186,10 +232,10 @@ Provide your response:"""
         )
 
         try:
-            if self.provider == AIProvider.ANTHROPIC:
-                return self._call_anthropic(prompt)
+            if self.provider == AIProvider.AZURE_OPENAI:
+                return self._call_azure_openai(prompt)
             else:
-                return self._call_openai(prompt)
+                return self._call_openrouter(prompt)
         except Exception as e:
             logger.error(f"AI service error: {e}")
             return JustificationResult(
@@ -200,47 +246,14 @@ Provide your response:"""
                 error=str(e),
             )
 
-    def _call_anthropic(self, prompt: str) -> JustificationResult:
-        """Call Anthropic Claude API."""
+    def _call_azure_openai(self, prompt: str) -> JustificationResult:
+        """Call Azure OpenAI API."""
         import json
 
-        model = self._get_model()
-
-        response = self._client.messages.create(
-            model=model,
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        content = response.content[0].text
-        tokens_used = response.usage.input_tokens + response.usage.output_tokens
-
-        # Parse JSON response
-        try:
-            result = json.loads(content)
-            justification = result.get("justification", content)
-            confidence = float(result.get("confidence_score", 70))
-        except json.JSONDecodeError:
-            # If not valid JSON, use the raw content
-            justification = content
-            confidence = 70.0
-
-        return JustificationResult(
-            justification=justification,
-            confidence_score=confidence,
-            provider=AIProvider.ANTHROPIC,
-            model=model,
-            tokens_used=tokens_used,
-        )
-
-    def _call_openai(self, prompt: str) -> JustificationResult:
-        """Call OpenAI API."""
-        import json
-
-        model = self._get_model()
+        deployment = self._get_azure_deployment()
 
         response = self._client.chat.completions.create(
-            model=model,
+            model=deployment,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -260,7 +273,44 @@ Provide your response:"""
         return JustificationResult(
             justification=justification,
             confidence_score=confidence,
-            provider=AIProvider.OPENAI,
+            provider=AIProvider.AZURE_OPENAI,
+            model=deployment,
+            tokens_used=tokens_used,
+        )
+
+    def _call_openrouter(self, prompt: str) -> JustificationResult:
+        """Call OpenRouter API."""
+        import json
+
+        model = self._get_model()
+
+        # OpenRouter requires additional headers for some features
+        response = self._client.chat.completions.create(
+            model=model,
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+            extra_headers={
+                "HTTP-Referer": "https://mwcs.local",  # Required by OpenRouter
+                "X-Title": "MWCS",  # Optional, for OpenRouter dashboard
+            },
+        )
+
+        content = response.choices[0].message.content
+        tokens_used = response.usage.total_tokens if response.usage else 0
+
+        # Parse JSON response
+        try:
+            result = json.loads(content)
+            justification = result.get("justification", content)
+            confidence = float(result.get("confidence_score", 70))
+        except json.JSONDecodeError:
+            justification = content
+            confidence = 70.0
+
+        return JustificationResult(
+            justification=justification,
+            confidence_score=confidence,
+            provider=AIProvider.OPENROUTER,
             model=model,
             tokens_used=tokens_used,
         )
@@ -297,9 +347,9 @@ Provide your response:"""
         try:
             self._init_client()
 
-            if self.provider == AIProvider.ANTHROPIC:
-                response = self._client.messages.create(
-                    model=self._get_model(),
+            if self.provider == AIProvider.AZURE_OPENAI:
+                response = self._client.chat.completions.create(
+                    model=self._get_azure_deployment(),
                     max_tokens=10,
                     messages=[{"role": "user", "content": "Test"}],
                 )
@@ -309,6 +359,10 @@ Provide your response:"""
                     model=self._get_model(),
                     max_tokens=10,
                     messages=[{"role": "user", "content": "Test"}],
+                    extra_headers={
+                        "HTTP-Referer": "https://mwcs.local",
+                        "X-Title": "MWCS",
+                    },
                 )
                 return response is not None
 

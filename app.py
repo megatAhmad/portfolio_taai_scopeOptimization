@@ -563,6 +563,26 @@ def render_function_rule_builder():
             if func_info['parameters']:
                 st.markdown(f"  - Parameters: {', '.join(func_info['parameters'].keys())}")
 
+    # Initialize session state for selected function
+    if "selected_function" not in st.session_state:
+        function_names = list(function_registry.list_functions().keys())
+        st.session_state.selected_function = function_names[0] if function_names else ""
+
+    # Function selection OUTSIDE the form for dynamic updates
+    function_names = list(function_registry.list_functions().keys())
+    selected_function = st.selectbox(
+        "Select Function",
+        function_names,
+        key="func_selector",
+        on_change=lambda: setattr(st.session_state, 'selected_function', st.session_state.func_selector)
+    )
+
+    # Show function description and parameters preview
+    func_info = function_registry.get_function_info(selected_function)
+    if func_info:
+        st.info(f"**{func_info['description']}** (Category: {func_info['category']})")
+
+    # Form for the rest of the inputs
     with st.form("add_function_rule_form"):
         col1, col2 = st.columns(2)
 
@@ -572,11 +592,7 @@ def render_function_rule_builder():
             rule_priority = st.slider("Priority", 0, 100, 50)
 
         with col2:
-            function_names = list(function_registry.list_functions().keys())
-            function_name = st.selectbox("Function", function_names)
-
-            # Get function parameters
-            func_info = function_registry.get_function_info(function_name)
+            # Get function parameters for the selected function
             params = {}
             if func_info and func_info.get("parameters"):
                 st.markdown("**Function Parameters:**")
@@ -586,7 +602,7 @@ def render_function_rule_builder():
                     param_value = st.text_input(
                         f"{param_name} ({param_type})",
                         value=str(default) if default else "",
-                        key=f"param_{function_name}_{param_name}"
+                        key=f"param_{selected_function}_{param_name}"
                     )
                     if param_value:
                         try:
@@ -600,6 +616,8 @@ def render_function_rule_builder():
                                 params[param_name] = param_value
                         except ValueError:
                             params[param_name] = param_value
+            else:
+                st.info("This function has no configurable parameters.")
 
         outcome = st.selectbox(
             "Outcome if True",
@@ -609,12 +627,12 @@ def render_function_rule_builder():
 
         submitted = st.form_submit_button("Add Function Rule")
 
-        if submitted and rule_name and function_name:
+        if submitted and rule_name:
             try:
                 rule = FunctionRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
-                    function_name=function_name,
+                    function_name=selected_function,
                     parameters=params,
                     outcome=outcome,
                     description=description,

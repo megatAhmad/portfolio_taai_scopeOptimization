@@ -45,7 +45,7 @@ class FlowchartVisualizer:
 
     def create_ruleset_flowchart(self, ruleset: RuleSet) -> go.Figure:
         """Create a flowchart visualization of the ruleset."""
-        if not ruleset.rules:
+        if ruleset is None or not ruleset.rules:
             return self._create_empty_figure("No rules defined")
 
         # Build node and edge data

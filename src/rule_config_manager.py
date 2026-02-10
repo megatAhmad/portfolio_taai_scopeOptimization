@@ -7,6 +7,7 @@ Provides session state management with file-based backup for rule configurations
 import json
 import logging
 import os
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -234,7 +235,7 @@ class RuleConfigManager:
         if engine is None:
             raise ValueError("No active configuration. Call new_config() first.")
 
-        rule = ConditionRule(
+        rule = ConditionRule.create_simple(
             rule_id=rule_id,
             name=name,
             column=column,
@@ -281,7 +282,7 @@ class RuleConfigManager:
         if engine is None:
             raise ValueError("No active configuration. Call new_config() first.")
 
-        rule = FunctionRule(
+        rule = FunctionRule.create_simple(
             rule_id=rule_id,
             name=name,
             function_name=function_name,
@@ -329,7 +330,7 @@ class RuleConfigManager:
         if engine is None:
             raise ValueError("No active configuration. Call new_config() first.")
 
-        rule = AIGeneratedRule(
+        rule = AIGeneratedRule.create_simple(
             rule_id=rule_id,
             name=name,
             prompt=prompt,
@@ -338,7 +339,6 @@ class RuleConfigManager:
             priority=priority,
             enabled=enabled,
             model=model,
-            max_tokens=max_tokens,
         )
 
         engine.add_rule(rule)
@@ -368,7 +368,9 @@ class RuleConfigManager:
         if engine is None:
             raise ValueError("No active configuration. Call new_config() first.")
 
+        conn_id = f"conn_{uuid.uuid4().hex[:8]}"
         connection = RuleConnection(
+            id=conn_id,
             from_rule_id=from_rule_id,
             to_rule_id=to_rule_id,
             condition=condition,

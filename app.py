@@ -7,6 +7,7 @@ Streamlit application entry point with enhanced rule engine.
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -484,6 +485,110 @@ DATASET_KEY_COLUMNS = {
     "asset_registry": ["Asset ID", "Asset Name", "Asset Type"],
     "budget_data": ["Category"],
 }
+
+
+def create_enhanced_rule_preview(
+    engine: "EnhancedRuleEngine",
+    sample_df: pd.DataFrame,
+    num_samples: int = 5
+) -> pd.DataFrame:
+    """Create a preview table for enhanced rule engine evaluation.
+
+    Args:
+        engine: The enhanced rule engine with rules defined
+        sample_df: Sample dataframe to evaluate
+        num_samples: Number of sample rows to preview
+
+    Returns:
+        DataFrame with preview results
+    """
+    if sample_df.empty:
+        return pd.DataFrame({"Message": ["No sample data available"]})
+
+    if not engine.rules:
+        return pd.DataFrame({"Message": ["No rules defined in enhanced engine"]})
+
+    preview_data = []
+
+    for idx, row in sample_df.head(num_samples).iterrows():
+        # Evaluate row against enhanced rules
+        matched_rules = []
+        outcome = "RECONSIDER"  # Default
+
+        # Sort rules by priority
+        sorted_rules = sorted(
+            engine.rules.values(),
+            key=lambda r: r.priority,
+            reverse=True
+        )
+
+        for rule in sorted_rules:
+            if not rule.enabled:
+                continue
+
+            try:
+                # Simple evaluation based on rule type
+                if rule.rule_type == EnhancedRuleType.CONDITION:
+                    # Get column value
+                    col_value = row.get(rule.column, None)
+                    if col_value is not None:
+                        matches = _evaluate_condition(col_value, rule.operator, rule.value)
+                        if matches:
+                            matched_rules.append(rule.name)
+                            outcome = rule.outcome
+                            break  # First matching rule wins
+                elif rule.rule_type == EnhancedRuleType.FUNCTION:
+                    # For preview, just note the function would be called
+                    matched_rules.append(f"{rule.name} (function)")
+                elif rule.rule_type == EnhancedRuleType.AI_GENERATED:
+                    # For preview, just note the AI would be called
+                    matched_rules.append(f"{rule.name} (AI)")
+            except Exception as e:
+                logger.warning(f"Error evaluating rule {rule.name}: {e}")
+
+        preview_row = {
+            "Row #": idx + 1,
+            "Work ID": row.get("Work ID", "N/A"),
+            "Description": str(row.get("Description", "N/A"))[:50] + "...",
+            "Expected Status": outcome,
+            "Matched Rules": ", ".join(matched_rules[:2]) if matched_rules else "Default",
+        }
+        preview_data.append(preview_row)
+
+    return pd.DataFrame(preview_data)
+
+
+def _evaluate_condition(value: Any, operator: "ConditionOperator", compare_value: Any) -> bool:
+    """Evaluate a condition operator against a value."""
+    try:
+        if operator == ConditionOperator.EQUALS:
+            return str(value).lower() == str(compare_value).lower()
+        elif operator == ConditionOperator.NOT_EQUALS:
+            return str(value).lower() != str(compare_value).lower()
+        elif operator == ConditionOperator.GREATER_THAN:
+            return float(value) > float(compare_value)
+        elif operator == ConditionOperator.LESS_THAN:
+            return float(value) < float(compare_value)
+        elif operator == ConditionOperator.GREATER_EQUAL:
+            return float(value) >= float(compare_value)
+        elif operator == ConditionOperator.LESS_EQUAL:
+            return float(value) <= float(compare_value)
+        elif operator == ConditionOperator.CONTAINS:
+            return str(compare_value).lower() in str(value).lower()
+        elif operator == ConditionOperator.NOT_CONTAINS:
+            return str(compare_value).lower() not in str(value).lower()
+        elif operator == ConditionOperator.STARTS_WITH:
+            return str(value).lower().startswith(str(compare_value).lower())
+        elif operator == ConditionOperator.ENDS_WITH:
+            return str(value).lower().endswith(str(compare_value).lower())
+        elif operator == ConditionOperator.IS_NULL:
+            return pd.isna(value) or value is None or str(value).strip() == ""
+        elif operator == ConditionOperator.IS_NOT_NULL:
+            return not (pd.isna(value) or value is None or str(value).strip() == "")
+        else:
+            return False
+    except (ValueError, TypeError):
+        return False
 
 
 def render_dataset_pairing_config(prefix: str) -> dict:
@@ -1109,26 +1214,42 @@ def render_preview_step():
 
     with col1:
         st.subheader("Rule Flowchart")
-        fig = st.session_state.visualizer.create_ruleset_flowchart(
-            st.session_state.rule_builder.current_ruleset
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        if has_standard_rules:
+            fig = st.session_state.visualizer.create_ruleset_flowchart(
+                st.session_state.rule_builder.current_ruleset
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        elif has_enhanced_rules:
+            # Show enhanced rule engine flowchart
+            fig = st.session_state.visualizer.create_enhanced_rule_flowchart(
+                st.session_state.enhanced_rule_engine
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.subheader("Sample Evaluation Preview")
 
-        # Set up logic engine
-        st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
-        st.session_state.logic_engine.set_supporting_data(
-            st.session_state.uploader.get_supporting_datasets()
-        )
+        if has_standard_rules:
+            # Use standard logic engine
+            st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
+            st.session_state.logic_engine.set_supporting_data(
+                st.session_state.uploader.get_supporting_datasets()
+            )
 
-        preview_df = st.session_state.visualizer.create_rule_preview_table(
-            st.session_state.rule_builder.current_ruleset,
-            st.session_state.uploader.uploaded_data.main_df,
-            num_samples=5,
-        )
-        st.dataframe(preview_df, use_container_width=True, hide_index=True)
+            preview_df = st.session_state.visualizer.create_rule_preview_table(
+                st.session_state.rule_builder.current_ruleset,
+                st.session_state.uploader.uploaded_data.main_df,
+                num_samples=5,
+            )
+            st.dataframe(preview_df, use_container_width=True, hide_index=True)
+        elif has_enhanced_rules:
+            # Use enhanced rule engine for preview
+            preview_df = create_enhanced_rule_preview(
+                st.session_state.enhanced_rule_engine,
+                st.session_state.uploader.uploaded_data.main_df,
+                num_samples=5,
+            )
+            st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
     # Navigation
     col1, col2 = st.columns([1, 1])

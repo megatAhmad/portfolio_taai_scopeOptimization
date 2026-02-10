@@ -189,6 +189,89 @@ class FlowchartVisualizer:
         )
         return fig
 
+    def create_enhanced_rule_flowchart(self, engine) -> go.Figure:
+        """Create a flowchart visualization for enhanced rule engine.
+
+        Args:
+            engine: EnhancedRuleEngine instance
+
+        Returns:
+            Plotly figure with flowchart
+        """
+        if engine is None or not engine.rules:
+            return self._create_empty_figure("No enhanced rules defined")
+
+        nodes = []
+        edges = []
+
+        # Start node
+        nodes.append({
+            "id": "start",
+            "label": "Start",
+            "x": 0,
+            "y": 0,
+            "color": "#28a745",
+        })
+
+        y_offset = 1
+
+        # Sort rules by priority
+        sorted_rules = sorted(
+            engine.rules.values(),
+            key=lambda r: r.priority,
+            reverse=True
+        )
+
+        for i, rule in enumerate(sorted_rules):
+            rule_id = f"rule_{i}"
+            outcome_id = f"outcome_{i}"
+
+            # Determine rule type label
+            rule_type_label = rule.rule_type.value.upper()
+
+            # Rule node
+            label = f"{rule.name}\n({rule_type_label})\nPriority: {rule.priority}"
+
+            nodes.append({
+                "id": rule_id,
+                "label": label,
+                "x": 0,
+                "y": y_offset,
+                "color": "#007bff" if rule.enabled else "#adb5bd",
+            })
+
+            # Edge from previous
+            if i == 0:
+                edges.append({"from": "start", "to": rule_id})
+            else:
+                edges.append({"from": f"rule_{i-1}", "to": rule_id})
+
+            # Outcome node
+            outcome = rule.outcome
+            nodes.append({
+                "id": outcome_id,
+                "label": outcome,
+                "x": 1,
+                "y": y_offset,
+                "color": OUTCOME_COLORS.get(outcome, "#6c757d"),
+            })
+            edges.append({"from": rule_id, "to": outcome_id, "label": "Match"})
+
+            y_offset += 1
+
+        # Default outcome node
+        nodes.append({
+            "id": "default",
+            "label": "Default:\nRECONSIDER",
+            "x": 0,
+            "y": y_offset,
+            "color": OUTCOME_COLORS.get("RECONSIDER", "#6c757d"),
+        })
+        if sorted_rules:
+            edges.append({"from": f"rule_{len(sorted_rules)-1}", "to": "default", "label": "No Match"})
+
+        return self._create_flowchart_figure(nodes, edges, "Enhanced Rule Engine")
+
     def create_results_summary_chart(self, results_df: pd.DataFrame) -> go.Figure:
         """Create a summary pie chart of categorization results."""
         if "Status" not in results_df.columns:

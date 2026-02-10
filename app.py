@@ -466,10 +466,116 @@ def render_rules_viewer():
 
 # Enhanced Rule Engine UI Functions
 
+# Available supporting datasets for pairing
+SUPPORTING_DATASETS = {
+    "none": "No External Dataset",
+    "equipment_classification": "Equipment Classification Master",
+    "work_type_categorization": "Work Type Categorization Reference",
+    "equipment_redundancy": "Equipment Redundancy Master",
+    "asset_registry": "Asset Registry",
+    "budget_data": "Budget Data",
+}
+
+# Column mappings for each supporting dataset
+DATASET_KEY_COLUMNS = {
+    "equipment_classification": ["Asset ID", "Asset Type", "Classification"],
+    "work_type_categorization": ["Work Type", "Category", "Work Category"],
+    "equipment_redundancy": ["Asset ID", "Equipment ID", "Redundancy Type"],
+    "asset_registry": ["Asset ID", "Asset Name", "Asset Type"],
+    "budget_data": ["Category"],
+}
+
+
+def render_dataset_pairing_config(prefix: str) -> dict:
+    """Render the dataset pairing configuration UI.
+
+    Args:
+        prefix: Unique prefix for widget keys
+
+    Returns:
+        Dictionary with dataset pairing configuration
+    """
+    st.markdown("---")
+    st.markdown("**External Dataset Configuration** (Optional)")
+
+    use_external = st.checkbox(
+        "Use External Dataset",
+        key=f"{prefix}_use_external",
+        help="Enable to join with a supporting dataset during rule evaluation"
+    )
+
+    config = {
+        "use_external_dataset": use_external,
+        "external_dataset": None,
+        "main_column": None,
+        "external_column": None,
+        "lookup_columns": [],
+    }
+
+    if use_external:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Select external dataset
+            external_dataset = st.selectbox(
+                "External Dataset",
+                options=list(SUPPORTING_DATASETS.keys())[1:],  # Exclude "none"
+                format_func=lambda x: SUPPORTING_DATASETS[x],
+                key=f"{prefix}_external_dataset"
+            )
+            config["external_dataset"] = external_dataset
+
+            # Get main dataset columns
+            main_columns = ["Asset ID", "Category", "Priority", "Work ID", "Description"]
+            if st.session_state.uploader.uploaded_data is not None:
+                main_columns = list(st.session_state.uploader.uploaded_data.main_df.columns)
+
+            main_column = st.selectbox(
+                "Main Dataset Join Column",
+                options=main_columns,
+                key=f"{prefix}_main_column",
+                help="Column from main dataset to match with external dataset"
+            )
+            config["main_column"] = main_column
+
+        with col2:
+            # Get external dataset columns
+            external_columns = DATASET_KEY_COLUMNS.get(external_dataset, ["ID"])
+
+            external_column = st.selectbox(
+                "External Dataset Join Column",
+                options=external_columns,
+                key=f"{prefix}_external_column",
+                help="Column from external dataset to match with main dataset"
+            )
+            config["external_column"] = external_column
+
+            # Columns to lookup/bring into the rule context
+            lookup_columns = st.multiselect(
+                "Columns to Lookup",
+                options=external_columns,
+                default=[],
+                key=f"{prefix}_lookup_columns",
+                help="Additional columns to retrieve from external dataset"
+            )
+            config["lookup_columns"] = lookup_columns
+
+        # Show preview of the pairing
+        st.info(
+            f"**Join Configuration:** Main.`{main_column}` = "
+            f"{SUPPORTING_DATASETS[external_dataset]}.`{external_column}`"
+        )
+
+    return config
+
+
 def render_condition_rule_builder():
     """Render the condition-based rule builder interface."""
     st.subheader("Condition-Based Rules")
     st.markdown("Create rules based on column values with comparison operators.")
+
+    # Dataset pairing configuration (outside form for dynamic updates)
+    dataset_config = render_dataset_pairing_config("cond_rule")
 
     with st.form("add_condition_rule_form"):
         col1, col2 = st.columns(2)
@@ -485,7 +591,11 @@ def render_condition_rule_builder():
             if st.session_state.uploader.uploaded_data is not None:
                 columns = list(st.session_state.uploader.uploaded_data.main_df.columns)
 
-            column = st.selectbox("Column", columns)
+            # Add lookup columns if external dataset is configured
+            if dataset_config["use_external_dataset"] and dataset_config["lookup_columns"]:
+                columns = columns + [f"[EXT] {col}" for col in dataset_config["lookup_columns"]]
+
+            column = st.selectbox("Column to Evaluate", columns)
             operator = st.selectbox(
                 "Operator",
                 options=[op.value for op in ConditionOperator],
@@ -509,16 +619,28 @@ def render_condition_rule_builder():
                 except ValueError:
                     parsed_value = value
 
+                # Build description with dataset config
+                full_description = description
+                if dataset_config["use_external_dataset"]:
+                    full_description += f"\n[Dataset Join: Main.{dataset_config['main_column']} = {dataset_config['external_dataset']}.{dataset_config['external_column']}]"
+
                 rule = ConditionRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
-                    column=column,
+                    column=column.replace("[EXT] ", "") if column.startswith("[EXT]") else column,
                     operator=ConditionOperator(operator),
                     value=parsed_value,
                     outcome=outcome,
-                    description=description,
+                    description=full_description,
                     priority=rule_priority,
                 )
+
+                # Store dataset config in session state for this rule
+                if dataset_config["use_external_dataset"]:
+                    if "rule_dataset_configs" not in st.session_state:
+                        st.session_state.rule_dataset_configs = {}
+                    st.session_state.rule_dataset_configs[rule_id] = dataset_config
+
                 st.session_state.enhanced_rule_engine.add_rule(rule)
                 st.success(f"Added condition rule: {rule_name}")
                 st.rerun()
@@ -552,6 +674,9 @@ def render_function_rule_builder():
     """Render the function-based rule builder interface."""
     st.subheader("Function-Based Rules")
     st.markdown("Create rules using predefined Python functions with custom parameters.")
+
+    # Dataset pairing configuration (outside form for dynamic updates)
+    dataset_config = render_dataset_pairing_config("func_rule")
 
     # Show available functions
     with st.expander("Available Functions"):
@@ -629,15 +754,27 @@ def render_function_rule_builder():
 
         if submitted and rule_name:
             try:
+                # Build description with dataset config
+                full_description = description
+                if dataset_config["use_external_dataset"]:
+                    full_description += f"\n[Dataset Join: Main.{dataset_config['main_column']} = {dataset_config['external_dataset']}.{dataset_config['external_column']}]"
+
                 rule = FunctionRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
                     function_name=selected_function,
                     parameters=params,
                     outcome=outcome,
-                    description=description,
+                    description=full_description,
                     priority=rule_priority,
                 )
+
+                # Store dataset config in session state for this rule
+                if dataset_config["use_external_dataset"]:
+                    if "rule_dataset_configs" not in st.session_state:
+                        st.session_state.rule_dataset_configs = {}
+                    st.session_state.rule_dataset_configs[rule_id] = dataset_config
+
                 st.session_state.enhanced_rule_engine.add_rule(rule)
                 st.success(f"Added function rule: {rule_name}")
                 st.rerun()
@@ -678,6 +815,9 @@ def render_ai_rule_builder():
     if not has_azure and not has_openrouter:
         st.warning("AI service not configured. Please set AZURE_OPENAI_API_KEY/ENDPOINT or OPENROUTER_API_KEY.")
 
+    # Dataset pairing configuration (outside form for dynamic updates)
+    dataset_config = render_dataset_pairing_config("ai_rule")
+
     with st.form("add_ai_rule_form"):
         col1, col2 = st.columns(2)
 
@@ -709,15 +849,34 @@ def render_ai_rule_builder():
 
         if submitted and rule_name and prompt:
             try:
+                # Build description with dataset config
+                full_description = description
+                if dataset_config["use_external_dataset"]:
+                    full_description += f"\n[Dataset Join: Main.{dataset_config['main_column']} = {dataset_config['external_dataset']}.{dataset_config['external_column']}]"
+
+                # Enhance prompt with dataset context if external dataset is used
+                enhanced_prompt = prompt
+                if dataset_config["use_external_dataset"]:
+                    enhanced_prompt += f"\n\nNote: This rule has access to data from {SUPPORTING_DATASETS[dataset_config['external_dataset']]} joined on {dataset_config['main_column']}."
+                    if dataset_config["lookup_columns"]:
+                        enhanced_prompt += f" Available lookup columns: {', '.join(dataset_config['lookup_columns'])}"
+
                 rule = AIGeneratedRule.create_simple(
                     rule_id=rule_id,
                     name=rule_name,
-                    prompt=prompt,
+                    prompt=enhanced_prompt,
                     outcome=outcome,
-                    description=description,
+                    description=full_description,
                     priority=rule_priority,
                     model="gpt-4" if ai_provider == "azure_openai" else "openai/gpt-4-turbo",
                 )
+
+                # Store dataset config in session state for this rule
+                if dataset_config["use_external_dataset"]:
+                    if "rule_dataset_configs" not in st.session_state:
+                        st.session_state.rule_dataset_configs = {}
+                    st.session_state.rule_dataset_configs[rule_id] = dataset_config
+
                 st.session_state.enhanced_rule_engine.add_rule(rule)
                 st.success(f"Added AI rule: {rule_name}")
                 st.rerun()

@@ -136,6 +136,7 @@ class ConditionRule:
     conditions: ConditionGroup
     outcome_on_match: RuleOutcome
     outcome_on_no_match: RuleOutcome = RuleOutcome.CONTINUE
+    outcome_on_error: RuleOutcome = RuleOutcome.RECONSIDER
     priority: int = 0
     enabled: bool = True
     description: str = ""
@@ -191,6 +192,8 @@ class ConditionRule:
         operator: ConditionOperator,
         value: Any,
         outcome: str = "RECONSIDER",
+        outcome_on_no_match: str = "CONTINUE",
+        outcome_on_error: str = "RECONSIDER",
         description: str = "",
         priority: int = 0,
         enabled: bool = True,
@@ -203,6 +206,8 @@ class ConditionRule:
             name=name,
             conditions=condition_group,
             outcome_on_match=RuleOutcome(outcome),
+            outcome_on_no_match=RuleOutcome(outcome_on_no_match),
+            outcome_on_error=RuleOutcome(outcome_on_error),
             priority=priority,
             enabled=enabled,
             description=description,
@@ -216,6 +221,7 @@ class ConditionRule:
             "conditions": self.conditions.to_dict(),
             "outcome_on_match": self.outcome_on_match.value,
             "outcome_on_no_match": self.outcome_on_no_match.value,
+            "outcome_on_error": self.outcome_on_error.value,
             "priority": self.priority,
             "enabled": self.enabled,
             "description": self.description,
@@ -229,6 +235,7 @@ class ConditionRule:
             conditions=ConditionGroup.from_dict(data["conditions"]),
             outcome_on_match=RuleOutcome(data["outcome_on_match"]),
             outcome_on_no_match=RuleOutcome(data.get("outcome_on_no_match", "CONTINUE")),
+            outcome_on_error=RuleOutcome(data.get("outcome_on_error", "RECONSIDER")),
             priority=data.get("priority", 0),
             enabled=data.get("enabled", True),
             description=data.get("description", ""),
@@ -244,6 +251,7 @@ class FunctionRule:
     parameters: dict[str, Any]
     outcome_on_match: RuleOutcome
     outcome_on_no_match: RuleOutcome = RuleOutcome.CONTINUE
+    outcome_on_error: RuleOutcome = RuleOutcome.RECONSIDER
     priority: int = 0
     enabled: bool = True
     description: str = ""
@@ -271,6 +279,8 @@ class FunctionRule:
         function_name: str,
         parameters: dict[str, Any],
         outcome: str = "RECONSIDER",
+        outcome_on_no_match: str = "CONTINUE",
+        outcome_on_error: str = "RECONSIDER",
         description: str = "",
         priority: int = 0,
         enabled: bool = True,
@@ -282,6 +292,8 @@ class FunctionRule:
             function_name=function_name,
             parameters=parameters,
             outcome_on_match=RuleOutcome(outcome),
+            outcome_on_no_match=RuleOutcome(outcome_on_no_match),
+            outcome_on_error=RuleOutcome(outcome_on_error),
             priority=priority,
             enabled=enabled,
             description=description,
@@ -296,6 +308,7 @@ class FunctionRule:
             "parameters": self.parameters,
             "outcome_on_match": self.outcome_on_match.value,
             "outcome_on_no_match": self.outcome_on_no_match.value,
+            "outcome_on_error": self.outcome_on_error.value,
             "priority": self.priority,
             "enabled": self.enabled,
             "description": self.description,
@@ -310,6 +323,7 @@ class FunctionRule:
             parameters=data.get("parameters", {}),
             outcome_on_match=RuleOutcome(data["outcome_on_match"]),
             outcome_on_no_match=RuleOutcome(data.get("outcome_on_no_match", "CONTINUE")),
+            outcome_on_error=RuleOutcome(data.get("outcome_on_error", "RECONSIDER")),
             priority=data.get("priority", 0),
             enabled=data.get("enabled", True),
             description=data.get("description", ""),
@@ -325,6 +339,7 @@ class AIGeneratedRule:
     generated_code: str = ""
     outcome_on_match: RuleOutcome = RuleOutcome.ACCEPT
     outcome_on_no_match: RuleOutcome = RuleOutcome.CONTINUE
+    outcome_on_error: RuleOutcome = RuleOutcome.RECONSIDER
     priority: int = 0
     enabled: bool = True
     description: str = ""
@@ -358,6 +373,8 @@ class AIGeneratedRule:
         name: str,
         prompt: str,
         outcome: str = "RECONSIDER",
+        outcome_on_no_match: str = "CONTINUE",
+        outcome_on_error: str = "RECONSIDER",
         description: str = "",
         priority: int = 0,
         enabled: bool = True,
@@ -369,6 +386,8 @@ class AIGeneratedRule:
             name=name,
             prompt=prompt,
             outcome_on_match=RuleOutcome(outcome),
+            outcome_on_no_match=RuleOutcome(outcome_on_no_match),
+            outcome_on_error=RuleOutcome(outcome_on_error),
             priority=priority,
             enabled=enabled,
             description=description,
@@ -384,6 +403,7 @@ class AIGeneratedRule:
             "generated_code": self.generated_code,
             "outcome_on_match": self.outcome_on_match.value,
             "outcome_on_no_match": self.outcome_on_no_match.value,
+            "outcome_on_error": self.outcome_on_error.value,
             "priority": self.priority,
             "enabled": self.enabled,
             "description": self.description,
@@ -400,6 +420,7 @@ class AIGeneratedRule:
             generated_code=data.get("generated_code", ""),
             outcome_on_match=RuleOutcome(data.get("outcome_on_match", "ACCEPTED")),
             outcome_on_no_match=RuleOutcome(data.get("outcome_on_no_match", "CONTINUE")),
+            outcome_on_error=RuleOutcome(data.get("outcome_on_error", "RECONSIDER")),
             priority=data.get("priority", 0),
             enabled=data.get("enabled", True),
             description=data.get("description", ""),
@@ -418,7 +439,7 @@ class RuleConnection:
     id: str
     from_rule_id: Optional[str]  # None for entry point
     to_rule_id: str
-    condition: str = "always"  # "on_match", "on_no_match", "always"
+    condition: str = "always"  # "on_match", "on_no_match", "on_error", "always"
     priority: int = 0
 
     def to_dict(self) -> dict:

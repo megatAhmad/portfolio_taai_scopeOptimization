@@ -708,10 +708,33 @@ def render_condition_rule_builder():
             )
             value = st.text_input("Value")
 
-        outcome = st.selectbox(
-            "Outcome",
-            options=["ACCEPTED", "REJECTED", "RECONSIDER"],
-        )
+        # Outcome configuration
+        st.markdown("**Outcome Configuration**")
+        outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
+
+        col_out1, col_out2, col_out3 = st.columns(3)
+        with col_out1:
+            outcome = st.selectbox(
+                "If Rule Matches",
+                options=outcome_options,
+                index=0,
+                help="Action when the condition is satisfied"
+            )
+        with col_out2:
+            outcome_no_match = st.selectbox(
+                "If Rule Not Matched",
+                options=outcome_options,
+                index=3,  # CONTINUE
+                help="Action when the condition is not satisfied"
+            )
+        with col_out3:
+            outcome_error = st.selectbox(
+                "On Error",
+                options=outcome_options,
+                index=2,  # RECONSIDER
+                help="Action when an error occurs during evaluation"
+            )
+
         description = st.text_area("Description (optional)")
 
         submitted = st.form_submit_button("Add Condition Rule")
@@ -736,6 +759,8 @@ def render_condition_rule_builder():
                     operator=ConditionOperator(operator),
                     value=parsed_value,
                     outcome=outcome,
+                    outcome_on_no_match=outcome_no_match,
+                    outcome_on_error=outcome_error,
                     description=full_description,
                     priority=rule_priority,
                 )
@@ -765,7 +790,13 @@ def render_condition_rule_builder():
             with st.expander(f"{rule.name} (Priority: {rule.priority})"):
                 st.markdown(f"**ID:** {rule.rule_id}")
                 st.markdown(f"**Condition:** `{rule.column} {rule.operator.value} {rule.value}`")
-                st.markdown(f"**Outcome:** {rule.outcome}")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(f"**On Match:** {rule.outcome_on_match.value}")
+                with col2:
+                    st.markdown(f"**On No Match:** {rule.outcome_on_no_match.value}")
+                with col3:
+                    st.markdown(f"**On Error:** {rule.outcome_on_error.value}")
                 st.markdown(f"**Enabled:** {rule.enabled}")
                 if rule.description:
                     st.markdown(f"**Description:** {rule.description}")
@@ -849,10 +880,36 @@ def render_function_rule_builder():
             else:
                 st.info("This function has no configurable parameters.")
 
-        outcome = st.selectbox(
-            "Outcome if True",
-            options=["ACCEPTED", "REJECTED", "RECONSIDER"],
-        )
+        # Outcome configuration
+        st.markdown("**Outcome Configuration**")
+        outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
+
+        col_out1, col_out2, col_out3 = st.columns(3)
+        with col_out1:
+            outcome = st.selectbox(
+                "If Function Returns True",
+                options=outcome_options,
+                index=0,
+                key="func_outcome_match",
+                help="Action when the function returns True"
+            )
+        with col_out2:
+            outcome_no_match = st.selectbox(
+                "If Function Returns False",
+                options=outcome_options,
+                index=3,  # CONTINUE
+                key="func_outcome_no_match",
+                help="Action when the function returns False"
+            )
+        with col_out3:
+            outcome_error = st.selectbox(
+                "On Error",
+                options=outcome_options,
+                index=2,  # RECONSIDER
+                key="func_outcome_error",
+                help="Action when an error occurs during execution"
+            )
+
         description = st.text_area("Description (optional)")
 
         submitted = st.form_submit_button("Add Function Rule")
@@ -870,6 +927,8 @@ def render_function_rule_builder():
                     function_name=selected_function,
                     parameters=params,
                     outcome=outcome,
+                    outcome_on_no_match=outcome_no_match,
+                    outcome_on_error=outcome_error,
                     description=full_description,
                     priority=rule_priority,
                 )
@@ -900,7 +959,13 @@ def render_function_rule_builder():
                 st.markdown(f"**ID:** {rule.rule_id}")
                 st.markdown(f"**Function:** `{rule.function_name}`")
                 st.markdown(f"**Parameters:** {rule.parameters}")
-                st.markdown(f"**Outcome:** {rule.outcome}")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(f"**On True:** {rule.outcome_on_match.value}")
+                with col2:
+                    st.markdown(f"**On False:** {rule.outcome_on_no_match.value}")
+                with col3:
+                    st.markdown(f"**On Error:** {rule.outcome_on_error.value}")
                 st.markdown(f"**Enabled:** {rule.enabled}")
 
                 if st.button("Delete", key=f"del_func_{rule.rule_id}"):
@@ -944,10 +1009,36 @@ def render_ai_rule_builder():
             height=100
         )
 
-        outcome = st.selectbox(
-            "Outcome if True",
-            options=["ACCEPTED", "REJECTED", "RECONSIDER"],
-        )
+        # Outcome configuration
+        st.markdown("**Outcome Configuration**")
+        outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
+
+        col_out1, col_out2, col_out3 = st.columns(3)
+        with col_out1:
+            outcome = st.selectbox(
+                "If AI Returns True",
+                options=outcome_options,
+                index=0,
+                key="ai_outcome_match",
+                help="Action when the AI evaluation returns True"
+            )
+        with col_out2:
+            outcome_no_match = st.selectbox(
+                "If AI Returns False",
+                options=outcome_options,
+                index=3,  # CONTINUE
+                key="ai_outcome_no_match",
+                help="Action when the AI evaluation returns False"
+            )
+        with col_out3:
+            outcome_error = st.selectbox(
+                "On Error",
+                options=outcome_options,
+                index=2,  # RECONSIDER
+                key="ai_outcome_error",
+                help="Action when an error occurs during AI evaluation"
+            )
+
         description = st.text_area("Description (optional)")
 
         submitted = st.form_submit_button("Add AI Rule")
@@ -971,6 +1062,8 @@ def render_ai_rule_builder():
                     name=rule_name,
                     prompt=enhanced_prompt,
                     outcome=outcome,
+                    outcome_on_no_match=outcome_no_match,
+                    outcome_on_error=outcome_error,
                     description=full_description,
                     priority=rule_priority,
                     model="gpt-4" if ai_provider == "azure_openai" else "openai/gpt-4-turbo",
@@ -1002,7 +1095,13 @@ def render_ai_rule_builder():
                 st.markdown(f"**ID:** {rule.rule_id}")
                 st.markdown(f"**Prompt:** {rule.prompt}")
                 st.markdown(f"**Model:** {rule.model}")
-                st.markdown(f"**Outcome:** {rule.outcome}")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(f"**On True:** {rule.outcome_on_match.value}")
+                with col2:
+                    st.markdown(f"**On False:** {rule.outcome_on_no_match.value}")
+                with col3:
+                    st.markdown(f"**On Error:** {rule.outcome_on_error.value}")
                 st.markdown(f"**Enabled:** {rule.enabled}")
                 if rule.generated_code:
                     st.markdown("**Generated Code:**")
@@ -1156,19 +1255,49 @@ def render_enhanced_rule_config():
     # Rule connections
     st.divider()
     st.subheader("Rule Connections")
-    st.markdown("Define execution order by connecting rules.")
+    st.markdown("""
+    Define execution flow between rules based on their outcomes:
+    - **Always**: Execute next rule regardless of current rule's result
+    - **On Match**: Execute only when current rule matches (returns True)
+    - **On No Match**: Execute only when current rule doesn't match (returns False)
+    - **On Error**: Execute only when current rule encounters an error
+    """)
 
     with st.form("add_connection_form"):
         col1, col2, col3 = st.columns(3)
 
         rule_ids = ["START"] + [r.rule_id for r in st.session_state.enhanced_rule_engine.rules.values()]
 
+        # Create display names for rules
+        rule_display = {"START": "START (Entry Point)"}
+        for r in st.session_state.enhanced_rule_engine.rules.values():
+            rule_display[r.rule_id] = f"{r.rule_id} ({r.name})"
+
         with col1:
-            from_rule = st.selectbox("From Rule", options=rule_ids)
+            from_rule = st.selectbox(
+                "From Rule",
+                options=rule_ids,
+                format_func=lambda x: rule_display.get(x, x)
+            )
         with col2:
-            to_rule = st.selectbox("To Rule", options=rule_ids[1:])  # Exclude START as target
+            to_rule = st.selectbox(
+                "To Rule",
+                options=rule_ids[1:],  # Exclude START as target
+                format_func=lambda x: rule_display.get(x, x)
+            )
         with col3:
-            condition = st.selectbox("Condition", options=["any", "match", "no_match"])
+            condition_options = {
+                "always": "Always (Unconditional)",
+                "on_match": "On Match (Rule True)",
+                "on_no_match": "On No Match (Rule False)",
+                "on_error": "On Error",
+            }
+            condition = st.selectbox(
+                "Trigger Condition",
+                options=list(condition_options.keys()),
+                format_func=lambda x: condition_options[x],
+                help="When should this connection be followed?"
+            )
 
         if st.form_submit_button("Add Connection"):
             try:
@@ -1181,7 +1310,7 @@ def render_enhanced_rule_config():
                     condition=condition
                 )
                 st.session_state.enhanced_rule_engine.add_connection(connection)
-                st.success(f"Added connection: {from_rule} -> {to_rule}")
+                st.success(f"Added connection: {from_rule} -> {to_rule} ({condition})")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
@@ -1189,9 +1318,25 @@ def render_enhanced_rule_config():
     # Show existing connections
     if st.session_state.enhanced_rule_engine.connections:
         st.markdown("**Existing Connections:**")
+        condition_labels = {
+            "always": "Always",
+            "on_match": "On Match",
+            "on_no_match": "On No Match",
+            "on_error": "On Error",
+            "any": "Always",  # Legacy support
+            "match": "On Match",  # Legacy support
+            "no_match": "On No Match",  # Legacy support
+        }
         for conn in st.session_state.enhanced_rule_engine.connections.values():
             from_display = conn.from_rule_id if conn.from_rule_id else "START"
-            st.markdown(f"- {from_display} → {conn.to_rule_id} (on {conn.condition})")
+            cond_label = condition_labels.get(conn.condition, conn.condition)
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f"- {from_display} → {conn.to_rule_id} ({cond_label})")
+            with col2:
+                if st.button("Delete", key=f"del_conn_{conn.id}"):
+                    st.session_state.enhanced_rule_engine.remove_connection(conn.id)
+                    st.rerun()
 
 
 def render_preview_step():

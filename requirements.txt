@@ -11,8 +11,7 @@ numpy>=1.24.0
 # Excel I/O
 openpyxl>=3.10.0
 
-# AI Services
-anthropic>=0.7.0
+# AI Services (Azure OpenAI and OpenRouter)
 openai>=1.0.0
 
 # Date Parsing

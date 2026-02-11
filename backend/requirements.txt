@@ -1,0 +1,25 @@
+# FastAPI and server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+websockets==12.0
+
+# Pydantic for data validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Data processing (from existing requirements)
+pandas==2.1.4
+openpyxl==3.1.2
+numpy==1.26.3
+
+# AI/ML dependencies (from existing requirements)
+openai==1.7.2
+anthropic==0.8.1
+tiktoken==0.5.2
+
+# Visualization (adapted for JSON output)
+plotly==5.18.0
+
+# Utilities
+python-dotenv==1.0.0

@@ -40,7 +40,7 @@ repository at this time.
 | Language | Python 3.9+ | |
 | Dataframes | Pandas >= 1.5.0, NumPy >= 1.24.0 | Core data manipulation |
 | Excel I/O | openpyxl >= 3.10.0 | Read & write .xlsx |
-| AI Justifications | Anthropic Claude API (`anthropic >= 0.7.0`) | Primary; OpenAI is a secondary option |
+| AI Justifications | Azure OpenAI (`openai >= 1.0.0`) | Primary; OpenRouter is fallback |
 | Date Parsing | python-dateutil >= 2.8.0 | |
 | Visualisation | Plotly >= 5.14.0 | Charts & flowchart previews |
 
@@ -65,7 +65,7 @@ All dependencies go in a single `requirements.txt`.
                 │                    │
         ┌───────▼────────────────────▼────────┐
         │       AI Justification Service       │
-        │       (Anthropic / OpenAI API)       │
+        │    (Azure OpenAI / OpenRouter API)   │
         └──────────────────────────────────────┘
 ```
 
@@ -279,4 +279,3 @@ current implementation decisions.
 ---
 
 *Document based on MWCS Product Requirements Document v1.0 — 2025-02-04*
-

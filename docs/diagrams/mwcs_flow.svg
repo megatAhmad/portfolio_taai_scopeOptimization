@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700" width="1400" height="700">
+  <defs>
+    <!-- Arrow marker -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <!-- Styles -->
+    <style>
+      .node-circle { fill: #5DADE2; stroke: none; }
+      .node-diamond { fill: #F5B7B1; stroke: none; }
+      .node-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; fill: #2E86AB; font-weight: 600; }
+      .node-sublabel { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #666; }
+      .edge-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; fill: #333; }
+      .arrow-line { stroke: #333; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .data-label { font-family: 'Courier New', monospace; font-size: 10px; fill: #666; }
+      .outcome-accepted { fill: #28a745; }
+      .outcome-rejected { fill: #dc3545; }
+      .outcome-reconsider { fill: #ffc107; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="700" fill="white"/>
+
+  <!-- ==================== ROW 1: Upload Flow ==================== -->
+
+  <!-- Upload Node -->
+  <circle cx="80" cy="120" r="25" class="node-circle"/>
+  <text x="80" y="70" text-anchor="middle" class="node-label">Upload</text>
+  <text x="80" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+  <!-- Arrow: Upload to Validate -->
+  <line x1="105" y1="120" x2="175" y2="120" class="arrow-line"/>
+  <text x="140" y="110" text-anchor="middle" class="data-label">[.xlsx file]</text>
+
+  <!-- Validate Data Diamond -->
+  <polygon points="220,120 250,90 280,120 250,150" class="node-diamond"/>
+  <text x="250" y="65" text-anchor="middle" class="node-label">Validate Data</text>
+  <text x="250" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+  <!-- Arrow: Validate Yes to Rules -->
+  <line x1="280" y1="120" x2="370" y2="120" class="arrow-line"/>
+  <text x="310" y="110" text-anchor="middle" class="edge-label">Valid</text>
+
+  <!-- Arrow: Validate No to Error -->
+  <line x1="250" y1="150" x2="250" y2="200" class="arrow-line"/>
+  <text x="265" y="180" class="edge-label">Invalid</text>
+
+  <!-- Error Node -->
+  <circle cx="250" cy="230" r="20" class="node-circle"/>
+  <text x="250" y="270" text-anchor="middle" class="node-sublabel">Show Errors</text>
+
+  <!-- Loop back arrow from Error -->
+  <path d="M 230 230 Q 150 230 150 150 Q 150 120 80 120" class="arrow-line" style="marker-end: none;"/>
+  <polygon points="85,115 75,120 85,125" fill="#333"/>
+
+  <!-- Rules Builder Node -->
+  <circle cx="410" cy="120" r="25" class="node-circle"/>
+  <text x="410" y="70" text-anchor="middle" class="node-label">Define Rules</text>
+  <text x="410" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+  <!-- Arrow: Rules to Preview -->
+  <line x1="435" y1="120" x2="510" y2="120" class="arrow-line"/>
+  <text x="470" y="110" text-anchor="middle" class="data-label">[ruleset]</text>
+
+  <!-- Preview Diamond -->
+  <polygon points="550,120 580,90 610,120 580,150" class="node-diamond"/>
+  <text x="580" y="65" text-anchor="middle" class="node-label">Preview</text>
+  <text x="580" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+  <!-- Arrow: Preview Confirm -->
+  <line x1="610" y1="120" x2="700" y2="120" class="arrow-line"/>
+  <text x="650" y="110" text-anchor="middle" class="edge-label">Confirm</text>
+
+  <!-- Arrow: Preview Edit back to Rules -->
+  <path d="M 580 150 Q 580 180 495 180 Q 410 180 410 145" class="arrow-line"/>
+  <text x="495" y="195" text-anchor="middle" class="edge-label">Edit</text>
+
+  <!-- ==================== ROW 2: Processing Flow ==================== -->
+
+  <!-- Process Node -->
+  <circle cx="740" cy="120" r="25" class="node-circle"/>
+  <text x="740" y="70" text-anchor="middle" class="node-label">Process</text>
+  <text x="740" y="85" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+  <!-- Arrow: Process to Evaluate -->
+  <line x1="765" y1="120" x2="850" y2="120" class="arrow-line"/>
+  <text x="805" y="110" text-anchor="middle" class="data-label">[rows]</text>
+
+  <!-- Evaluate Rules Node -->
+  <circle cx="890" cy="120" r="25" class="node-circle"/>
+  <text x="890" y="70" text-anchor="middle" class="node-label">Evaluate Rules</text>
+  <text x="890" y="85" text-anchor="middle" class="node-sublabel">(Logic Engine)</text>
+
+  <!-- Arrow: Evaluate to AI Check -->
+  <line x1="915" y1="120" x2="1000" y2="120" class="arrow-line"/>
+  <text x="955" y="110" text-anchor="middle" class="data-label">[decision]</text>
+
+  <!-- AI Available Diamond -->
+  <polygon points="1040,120 1070,90 1100,120 1070,150" class="node-diamond"/>
+  <text x="1070" y="65" text-anchor="middle" class="node-label">AI Available?</text>
+  <text x="1070" y="80" text-anchor="middle" class="node-sublabel">(Conditional Edge)</text>
+
+  <!-- Arrow: AI Yes to Generate -->
+  <line x1="1100" y1="120" x2="1180" y2="120" class="arrow-line"/>
+  <text x="1135" y="110" text-anchor="middle" class="edge-label">Yes</text>
+
+  <!-- Generate AI Node -->
+  <circle cx="1220" cy="120" r="25" class="node-circle"/>
+  <text x="1220" y="70" text-anchor="middle" class="node-label">Generate AI</text>
+  <text x="1220" y="85" text-anchor="middle" class="node-sublabel">(Justification)</text>
+
+  <!-- Fallback Node -->
+  <circle cx="1070" cy="220" r="20" class="node-circle"/>
+  <text x="1070" y="260" text-anchor="middle" class="node-label">Fallback</text>
+  <text x="1070" y="275" text-anchor="middle" class="node-sublabel">(Basic Justification)</text>
+
+  <!-- Arrow: AI No to Fallback -->
+  <line x1="1070" y1="150" x2="1070" y2="200" class="arrow-line"/>
+  <text x="1085" y="175" class="edge-label">No</text>
+
+  <!-- Arrow: Fallback to Categorize -->
+  <path d="M 1090 220 Q 1150 220 1220 180" class="arrow-line"/>
+
+  <!-- ==================== ROW 3: Categorization ==================== -->
+
+  <!-- Arrow: Generate to Categorize -->
+  <line x1="1220" y1="145" x2="1220" y2="320" class="arrow-line"/>
+  <text x="1235" y="235" class="data-label">[justification]</text>
+
+  <!-- Categorize Diamond -->
+  <polygon points="1180,360 1220,320 1260,360 1220,400" class="node-diamond"/>
+  <text x="1220" y="300" text-anchor="middle" class="node-label">Categorize</text>
+  <text x="1220" y="315" text-anchor="middle" class="node-sublabel">(Decision)</text>
+
+  <!-- ACCEPTED outcome -->
+  <circle cx="1320" cy="320" r="20" class="outcome-accepted"/>
+  <text x="1320" y="325" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">ACC</text>
+  <text x="1320" y="355" text-anchor="middle" class="node-sublabel">ACCEPTED</text>
+  <line x1="1260" y1="345" x2="1300" y2="325" class="arrow-line"/>
+
+  <!-- REJECTED outcome -->
+  <circle cx="1320" cy="400" r="20" class="outcome-rejected"/>
+  <text x="1320" y="405" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">REJ</text>
+  <text x="1320" y="435" text-anchor="middle" class="node-sublabel">REJECTED</text>
+  <line x1="1260" y1="375" x2="1300" y2="395" class="arrow-line"/>
+
+  <!-- RECONSIDER outcome -->
+  <circle cx="1120" cy="400" r="20" class="outcome-reconsider"/>
+  <text x="1120" y="405" text-anchor="middle" fill="white" style="font-size: 10px; font-weight: bold;">REC</text>
+  <text x="1120" y="435" text-anchor="middle" class="node-sublabel">RECONSIDER</text>
+  <line x1="1195" y1="385" x2="1140" y2="395" class="arrow-line"/>
+
+  <!-- ==================== ROW 4: Export Flow ==================== -->
+
+  <!-- Merge arrows to Export -->
+  <path d="M 1320 340 L 1320 500 L 700 500" class="arrow-line" style="marker-end: none;"/>
+  <path d="M 1320 420 L 1320 500" stroke="#333" stroke-width="1.5" fill="none"/>
+  <path d="M 1120 420 L 1120 500 L 700 500" stroke="#333" stroke-width="1.5" fill="none"/>
+
+  <!-- Export Node -->
+  <circle cx="650" cy="500" r="25" class="node-circle"/>
+  <polygon points="655,495 675,500 655,505" fill="#333"/>
+  <text x="650" y="450" text-anchor="middle" class="node-label">Export</text>
+  <text x="650" y="465" text-anchor="middle" class="node-sublabel">(Node)</text>
+
+  <!-- Arrow: Export to Format Check -->
+  <line x1="625" y1="500" x2="530" y2="500" class="arrow-line"/>
+  <text x="575" y="490" text-anchor="middle" class="data-label">[results]</text>
+
+  <!-- Format Diamond -->
+  <polygon points="450,500 490,470 530,500 490,530" class="node-diamond"/>
+  <text x="490" y="450" text-anchor="middle" class="node-label">Format</text>
+  <text x="490" y="465" text-anchor="middle" class="node-sublabel">(Selection)</text>
+
+  <!-- XLSX output -->
+  <rect x="340" y="430" width="60" height="25" rx="5" fill="#217346"/>
+  <text x="370" y="448" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.xlsx</text>
+  <line x1="450" y1="485" x2="400" y2="455" class="arrow-line"/>
+
+  <!-- CSV output -->
+  <rect x="340" y="490" width="60" height="25" rx="5" fill="#2E86AB"/>
+  <text x="370" y="508" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.csv</text>
+  <line x1="450" y1="500" x2="400" y2="502" class="arrow-line"/>
+
+  <!-- JSON output -->
+  <rect x="340" y="550" width="60" height="25" rx="5" fill="#6c757d"/>
+  <text x="370" y="568" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: bold;">.json</text>
+  <line x1="450" y1="515" x2="400" y2="555" class="arrow-line"/>
+
+  <!-- Final outputs arrow -->
+  <line x1="340" y1="445" x2="250" y2="445" class="arrow-line"/>
+  <line x1="340" y1="502" x2="250" y2="502" class="arrow-line"/>
+  <line x1="340" y1="562" x2="250" y2="562" class="arrow-line"/>
+
+  <!-- Download Node -->
+  <circle cx="200" cy="502" r="30" class="node-circle"/>
+  <text x="200" y="507" text-anchor="middle" fill="white" style="font-size: 12px; font-weight: bold;">Download</text>
+
+  <!-- ==================== Legend ==================== -->
+  <rect x="30" y="600" width="400" height="80" fill="#f8f9fa" rx="10" stroke="#dee2e6"/>
+  <text x="50" y="625" class="node-label" style="font-size: 12px;">Legend:</text>
+
+  <circle cx="70" cy="650" r="12" class="node-circle"/>
+  <text x="90" y="655" class="node-sublabel">Process Node</text>
+
+  <polygon points="170,650 185,635 200,650 185,665" class="node-diamond"/>
+  <text x="215" y="655" class="node-sublabel">Conditional Edge</text>
+
+  <line x1="300" y1="650" x2="350" y2="650" class="arrow-line"/>
+  <text x="380" y="655" class="node-sublabel">Data Flow</text>
+
+</svg>

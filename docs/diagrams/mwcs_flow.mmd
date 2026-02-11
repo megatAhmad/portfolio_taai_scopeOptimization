@@ -1,0 +1,58 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#5DADE2', 'primaryTextColor': '#fff', 'primaryBorderColor': '#5DADE2', 'lineColor': '#333', 'secondaryColor': '#F5B7B1', 'tertiaryColor': '#f8f9fa'}}}%%
+
+flowchart TB
+    subgraph upload_phase["Phase 1: Data Upload"]
+        A((Upload<br/>Node)) -->|".xlsx file"| B{Validate Data<br/>Conditional Edge}
+        B -->|Valid| C((Define Rules<br/>Node))
+        B -->|Invalid| D((Show Errors))
+        D -->|"Fix & Retry"| A
+    end
+
+    subgraph rules_phase["Phase 2: Rule Configuration"]
+        C -->|"ruleset"| E{Preview<br/>Conditional Edge}
+        E -->|Confirm| F((Process<br/>Node))
+        E -->|Edit| C
+    end
+
+    subgraph process_phase["Phase 3: Processing"]
+        F -->|"rows"| G((Evaluate Rules<br/>Logic Engine))
+        G -->|"decision"| H{AI Available?<br/>Conditional Edge}
+        H -->|Yes| I((Generate AI<br/>Justification))
+        H -->|No| J((Fallback<br/>Basic Justification))
+        I -->|"justification"| K{Categorize<br/>Decision}
+        J --> K
+    end
+
+    subgraph categorize_phase["Phase 4: Categorization"]
+        K -->|"High Confidence"| L((ACCEPTED))
+        K -->|"Low Score"| M((REJECTED))
+        K -->|"Uncertain"| N((RECONSIDER))
+    end
+
+    subgraph export_phase["Phase 5: Export"]
+        L --> O((Export<br/>Node))
+        M --> O
+        N --> O
+        O --> P{Format<br/>Selection}
+        P -->|Excel| Q[".xlsx"]
+        P -->|CSV| R[".csv"]
+        P -->|JSON| S[".json"]
+        Q --> T((Download))
+        R --> T
+        S --> T
+    end
+
+    %% Styling
+    classDef nodeStyle fill:#5DADE2,stroke:#5DADE2,color:#fff
+    classDef decisionStyle fill:#F5B7B1,stroke:#F5B7B1,color:#333
+    classDef acceptedStyle fill:#28a745,stroke:#28a745,color:#fff
+    classDef rejectedStyle fill:#dc3545,stroke:#dc3545,color:#fff
+    classDef reconsiderStyle fill:#ffc107,stroke:#ffc107,color:#333
+    classDef outputStyle fill:#6c757d,stroke:#6c757d,color:#fff
+
+    class A,C,D,F,G,I,J,O,T nodeStyle
+    class B,E,H,K,P decisionStyle
+    class L acceptedStyle
+    class M rejectedStyle
+    class N reconsiderStyle
+    class Q,R,S outputStyle

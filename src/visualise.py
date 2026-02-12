@@ -26,6 +26,7 @@ OUTCOME_COLORS = {
     "ACCEPTED": "#28a745",  # Green
     "REJECTED": "#dc3545",  # Red
     "RECONSIDER": "#ffc107",  # Yellow/Orange
+    "CONTINUE": "#17a2b8",  # Blue/Cyan - Continue processing
 }
 
 CONFIDENCE_COLORS = {
@@ -224,13 +225,15 @@ class FlowchartVisualizer:
 
         for i, rule in enumerate(sorted_rules):
             rule_id = f"rule_{i}"
-            outcome_id = f"outcome_{i}"
 
             # Determine rule type label
             rule_type_label = rule.rule_type.value.upper()
 
-            # Rule node
-            label = f"{rule.name}\n({rule_type_label})\nPriority: {rule.priority}"
+            # Rule node - show condition details if available
+            if hasattr(rule, 'column') and rule.column:
+                label = f"{rule.name}\n({rule_type_label})\n{rule.column} {rule.operator.value if hasattr(rule, 'operator') else ''} {rule.value if hasattr(rule, 'value') else ''}"
+            else:
+                label = f"{rule.name}\n({rule_type_label})\nPriority: {rule.priority}"
 
             nodes.append({
                 "id": rule_id,
@@ -246,18 +249,29 @@ class FlowchartVisualizer:
             else:
                 edges.append({"from": f"rule_{i-1}", "to": rule_id})
 
-            # Outcome node
-            outcome = rule.outcome
+            # Outcome on Match
+            outcome_match = rule.outcome_on_match.value
             nodes.append({
-                "id": outcome_id,
-                "label": outcome,
+                "id": f"match_{i}",
+                "label": f"✓ {outcome_match}",
                 "x": 1,
-                "y": y_offset,
-                "color": OUTCOME_COLORS.get(outcome, "#6c757d"),
+                "y": y_offset - 0.3,
+                "color": OUTCOME_COLORS.get(outcome_match, "#6c757d"),
             })
-            edges.append({"from": rule_id, "to": outcome_id, "label": "Match"})
+            edges.append({"from": rule_id, "to": f"match_{i}", "label": "Match"})
 
-            y_offset += 1
+            # Outcome on No Match
+            outcome_no_match = rule.outcome_on_no_match.value
+            nodes.append({
+                "id": f"nomatch_{i}",
+                "label": f"✗ {outcome_no_match}",
+                "x": 1,
+                "y": y_offset + 0.3,
+                "color": OUTCOME_COLORS.get(outcome_no_match, "#6c757d"),
+            })
+            edges.append({"from": rule_id, "to": f"nomatch_{i}", "label": "No Match"})
+
+            y_offset += 1.5
 
         # Default outcome node
         nodes.append({
@@ -268,7 +282,7 @@ class FlowchartVisualizer:
             "color": OUTCOME_COLORS.get("RECONSIDER", "#6c757d"),
         })
         if sorted_rules:
-            edges.append({"from": f"rule_{len(sorted_rules)-1}", "to": "default", "label": "No Match"})
+            edges.append({"from": f"rule_{len(sorted_rules)-1}", "to": "default", "label": "End"})
 
         return self._create_flowchart_figure(nodes, edges, "Enhanced Rule Engine")
 

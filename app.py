@@ -1362,21 +1362,58 @@ def render_enhanced_rule_config():
 
         # Load configuration
         st.divider()
-        saved_configs = st.session_state.config_manager.list_saved_configs()
-        if saved_configs:
-            config_options = {c["name"]: c["filepath"] for c in saved_configs}
-            selected_config = st.selectbox("Load Configuration", options=list(config_options.keys()))
-            if st.button("Load"):
-                try:
-                    cm = st.session_state.config_manager
-                    cm.load_config(config_options[selected_config])
-                    engine = cm.get_rule_engine()
-                    if engine:
+        st.markdown("**Load Configuration**")
+
+        load_method = st.radio(
+            "Load from:",
+            options=["Saved Configurations", "Upload File"],
+            horizontal=True,
+            key="load_method"
+        )
+
+        if load_method == "Saved Configurations":
+            saved_configs = st.session_state.config_manager.list_saved_configs()
+            if saved_configs:
+                config_options = {c["name"]: c["filepath"] for c in saved_configs}
+                selected_config = st.selectbox("Select Configuration", options=list(config_options.keys()))
+                if st.button("Load Selected"):
+                    try:
+                        cm = st.session_state.config_manager
+                        cm.load_config(config_options[selected_config])
+                        engine = cm.get_rule_engine()
+                        if engine:
+                            st.session_state.enhanced_rule_engine = engine
+                        st.success(f"Loaded {selected_config}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error loading: {e}")
+            else:
+                st.info("No saved configurations found.")
+        else:
+            # File upload option
+            uploaded_file = st.file_uploader(
+                "Upload Configuration File",
+                type=["json"],
+                help="Upload a previously exported rule configuration JSON file"
+            )
+            if uploaded_file is not None:
+                if st.button("Load Uploaded File"):
+                    try:
+                        import json
+                        config_data = json.load(uploaded_file)
+                        cm = st.session_state.config_manager
+
+                        # Create engine from uploaded data
+                        engine_data = {
+                            "rules": config_data.get("rules", {}),
+                            "connections": config_data.get("connections", {}),
+                        }
+                        engine = EnhancedRuleEngine.from_dict(engine_data)
                         st.session_state.enhanced_rule_engine = engine
-                    st.success(f"Loaded {selected_config}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error loading: {e}")
+                        st.success(f"Loaded configuration from {uploaded_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error loading file: {e}")
 
     # Rule connections
     st.divider()

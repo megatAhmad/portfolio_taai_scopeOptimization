@@ -997,25 +997,35 @@ class EnhancedRuleEngine:
             "connections": {k: v.to_dict() for k, v in self.connections.items()},
         }
 
-    def from_dict(self, data: dict[str, Any]) -> None:
-        """Load engine configuration from dictionary."""
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "EnhancedRuleEngine":
+        """Load engine configuration from dictionary.
+
+        Args:
+            data: Dictionary containing rules and connections
+
+        Returns:
+            New EnhancedRuleEngine instance with loaded configuration
+        """
+        engine = cls()
+
         # Load rules
-        self.rules = {}
         for rule_id, rule_data in data.get("rules", {}).items():
             rule_type = rule_data.get("type", "condition")
             if rule_type == "condition":
-                self.rules[rule_id] = ConditionRule.from_dict(rule_data)
+                engine.rules[rule_id] = ConditionRule.from_dict(rule_data)
             elif rule_type == "function":
-                self.rules[rule_id] = FunctionRule.from_dict(rule_data)
+                engine.rules[rule_id] = FunctionRule.from_dict(rule_data)
             elif rule_type == "ai_generated":
-                self.rules[rule_id] = AIGeneratedRule.from_dict(rule_data)
+                engine.rules[rule_id] = AIGeneratedRule.from_dict(rule_data)
 
         # Load connections
-        self.connections = {}
         for conn_id, conn_data in data.get("connections", {}).items():
-            self.connections[conn_id] = RuleConnection.from_dict(conn_data)
+            engine.connections[conn_id] = RuleConnection.from_dict(conn_data)
 
-        logger.info(f"Loaded {len(self.rules)} rules and {len(self.connections)} connections")
+        logger.info(f"Loaded {len(engine.rules)} rules and {len(engine.connections)} connections")
+
+        return engine
 
 
 def create_rule_id() -> str:

@@ -70,3 +70,19 @@ tmp/
 
 # User uploaded data (runtime)
 uploads/
+
+# Node.js / Frontend
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npm/
+.yarn/
+
+# Vite
+dist/
+.vite/
+*.local
+
+# Build artifacts
+build/

@@ -1,0 +1,18 @@
+{
+  "name": "mwcs-maintenance-work-categorization",
+  "version": "1.0.0",
+  "description": "Maintenance Work Categorization System",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.0"
+  }
+}

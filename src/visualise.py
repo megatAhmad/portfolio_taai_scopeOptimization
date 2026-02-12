@@ -286,6 +286,127 @@ class FlowchartVisualizer:
 
         return self._create_flowchart_figure(nodes, edges, "Enhanced Rule Engine")
 
+    def create_enhanced_rule_mermaid(self, engine) -> str:
+        """Create a Mermaid flowchart diagram for enhanced rule engine.
+
+        Args:
+            engine: EnhancedRuleEngine instance
+
+        Returns:
+            Mermaid diagram code as string
+        """
+        if engine is None or not engine.rules:
+            return """
+            flowchart TD
+                A[No Rules Defined] --> B[Please add rules in Step 2]
+                style A fill:#ffc107,stroke:#333,stroke-width:2px
+                style B fill:#e9ecef,stroke:#333,stroke-width:1px
+            """
+
+        lines = ["flowchart TD"]
+
+        # Style definitions
+        lines.append("    %% Style definitions")
+        lines.append("    classDef startEnd fill:#28a745,stroke:#1e7e34,stroke-width:2px,color:#fff")
+        lines.append("    classDef ruleNode fill:#007bff,stroke:#0056b3,stroke-width:2px,color:#fff")
+        lines.append("    classDef disabledNode fill:#6c757d,stroke:#545b62,stroke-width:2px,color:#fff")
+        lines.append("    classDef acceptNode fill:#28a745,stroke:#1e7e34,stroke-width:2px,color:#fff")
+        lines.append("    classDef rejectNode fill:#dc3545,stroke:#bd2130,stroke-width:2px,color:#fff")
+        lines.append("    classDef reconsiderNode fill:#ffc107,stroke:#d39e00,stroke-width:2px,color:#000")
+        lines.append("    classDef continueNode fill:#17a2b8,stroke:#117a8b,stroke-width:2px,color:#fff")
+        lines.append("    classDef defaultNode fill:#6c757d,stroke:#545b62,stroke-width:2px,color:#fff")
+        lines.append("")
+
+        # Start node
+        lines.append("    START([🚀 Start Processing])")
+        lines.append("    class START startEnd")
+        lines.append("")
+
+        # Sort rules by priority
+        sorted_rules = sorted(
+            engine.rules.values(),
+            key=lambda r: r.priority,
+            reverse=True
+        )
+
+        prev_node = "START"
+
+        for i, rule in enumerate(sorted_rules):
+            rule_id = f"RULE_{i}"
+            rule_type = rule.rule_type.value.upper()
+
+            # Escape special characters in rule details
+            rule_name = rule.name.replace('"', "'").replace('<', '&lt;').replace('>', '&gt;')
+
+            # Build rule description
+            if hasattr(rule, 'column') and rule.column:
+                col = rule.column.replace('"', "'")
+                op = rule.operator.value if hasattr(rule, 'operator') else ''
+                val = str(rule.value).replace('"', "'") if hasattr(rule, 'value') else ''
+                rule_desc = f"{rule_name}<br/>📋 {rule_type}<br/>🔍 {col} {op} {val}"
+            elif hasattr(rule, 'function_name'):
+                func = rule.function_name.replace('"', "'")
+                rule_desc = f"{rule_name}<br/>📋 {rule_type}<br/>⚙️ {func}()"
+            elif hasattr(rule, 'prompt'):
+                prompt_short = rule.prompt[:30].replace('"', "'").replace('\n', ' ')
+                rule_desc = f"{rule_name}<br/>📋 {rule_type}<br/>🤖 AI Rule"
+            else:
+                rule_desc = f"{rule_name}<br/>📋 {rule_type}<br/>Priority: {rule.priority}"
+
+            # Rule node (diamond for decision)
+            lines.append(f'    {rule_id}{{{{{rule_desc}}}}}')
+            if rule.enabled:
+                lines.append(f"    class {rule_id} ruleNode")
+            else:
+                lines.append(f"    class {rule_id} disabledNode")
+
+            # Connection from previous
+            lines.append(f"    {prev_node} --> {rule_id}")
+            lines.append("")
+
+            # Outcome nodes
+            match_outcome = rule.outcome_on_match.value
+            no_match_outcome = rule.outcome_on_no_match.value
+
+            match_id = f"MATCH_{i}"
+            no_match_id = f"NOMATCH_{i}"
+
+            # Match outcome
+            match_icon = "✅" if match_outcome == "ACCEPTED" else ("❌" if match_outcome == "REJECTED" else ("🔄" if match_outcome == "CONTINUE" else "⚠️"))
+            lines.append(f'    {match_id}[{match_icon} {match_outcome}]')
+            lines.append(f"    class {match_id} {self._get_outcome_class(match_outcome)}")
+            lines.append(f'    {rule_id} -->|"✓ Match"| {match_id}')
+
+            # No match outcome
+            no_match_icon = "✅" if no_match_outcome == "ACCEPTED" else ("❌" if no_match_outcome == "REJECTED" else ("🔄" if no_match_outcome == "CONTINUE" else "⚠️"))
+            lines.append(f'    {no_match_id}[{no_match_icon} {no_match_outcome}]')
+            lines.append(f"    class {no_match_id} {self._get_outcome_class(no_match_outcome)}")
+            lines.append(f'    {rule_id} -->|"✗ No Match"| {no_match_id}')
+            lines.append("")
+
+            # If CONTINUE, connect to next rule (or default)
+            if no_match_outcome == "CONTINUE":
+                prev_node = no_match_id
+            else:
+                prev_node = rule_id
+
+        # Default/End node
+        lines.append("    DEFAULT([📊 Default: RECONSIDER])")
+        lines.append("    class DEFAULT defaultNode")
+        lines.append(f"    {prev_node} --> DEFAULT")
+
+        return "\n".join(lines)
+
+    def _get_outcome_class(self, outcome: str) -> str:
+        """Get the Mermaid class name for an outcome."""
+        outcome_classes = {
+            "ACCEPTED": "acceptNode",
+            "REJECTED": "rejectNode",
+            "RECONSIDER": "reconsiderNode",
+            "CONTINUE": "continueNode",
+        }
+        return outcome_classes.get(outcome, "defaultNode")
+
     def create_results_summary_chart(self, results_df: pd.DataFrame) -> go.Figure:
         """Create a summary pie chart of categorization results."""
         if "Status" not in results_df.columns:

@@ -1518,46 +1518,67 @@ def render_preview_step():
         st.warning("Please upload data first.")
         return
 
-    col1, col2 = st.columns([1, 1])
+    # Rule Flowchart - Full Width at top
+    st.subheader("📊 Rule Flowchart")
 
-    with col1:
-        st.subheader("Rule Flowchart")
-        if has_standard_rules:
-            fig = st.session_state.visualizer.create_ruleset_flowchart(
-                st.session_state.rule_builder.current_ruleset
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        elif has_enhanced_rules:
-            # Show enhanced rule engine flowchart
-            fig = st.session_state.visualizer.create_enhanced_rule_flowchart(
-                st.session_state.enhanced_rule_engine
-            )
-            st.plotly_chart(fig, use_container_width=True)
+    if has_standard_rules:
+        fig = st.session_state.visualizer.create_ruleset_flowchart(
+            st.session_state.rule_builder.current_ruleset
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif has_enhanced_rules:
+        # Generate and display Mermaid flowchart
+        mermaid_code = st.session_state.visualizer.create_enhanced_rule_mermaid(
+            st.session_state.enhanced_rule_engine
+        )
 
-    with col2:
-        st.subheader("Sample Evaluation Preview")
+        # Display using Streamlit's native mermaid support
+        st.markdown(f"""
+        ```mermaid
+        {mermaid_code}
+        ```
+        """)
 
-        if has_standard_rules:
-            # Use standard logic engine
-            st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
-            st.session_state.logic_engine.set_supporting_data(
-                st.session_state.uploader.get_supporting_datasets()
-            )
+        # Also show rule summary as expandable details
+        with st.expander("📋 Rule Details", expanded=False):
+            for rule in st.session_state.enhanced_rule_engine.rules.values():
+                rule_type = rule.rule_type.value.upper()
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.markdown(f"**{rule.name}** ({rule_type})")
+                with col2:
+                    st.markdown(f"Match → {rule.outcome_on_match.value}")
+                with col3:
+                    st.markdown(f"No Match → {rule.outcome_on_no_match.value}")
 
-            preview_df = st.session_state.visualizer.create_rule_preview_table(
-                st.session_state.rule_builder.current_ruleset,
-                st.session_state.uploader.uploaded_data.main_df,
-                num_samples=5,
-            )
-            st.dataframe(preview_df, use_container_width=True, hide_index=True)
-        elif has_enhanced_rules:
-            # Use enhanced rule engine for preview
-            preview_df = create_enhanced_rule_preview(
-                st.session_state.enhanced_rule_engine,
-                st.session_state.uploader.uploaded_data.main_df,
-                num_samples=5,
-            )
-            st.dataframe(preview_df, use_container_width=True, hide_index=True)
+    st.divider()
+
+    # Sample Evaluation Preview - Below flowchart
+    st.subheader("🔍 Sample Evaluation Preview")
+
+    if has_standard_rules:
+        # Use standard logic engine
+        st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
+        st.session_state.logic_engine.set_supporting_data(
+            st.session_state.uploader.get_supporting_datasets()
+        )
+
+        preview_df = st.session_state.visualizer.create_rule_preview_table(
+            st.session_state.rule_builder.current_ruleset,
+            st.session_state.uploader.uploaded_data.main_df,
+            num_samples=5,
+        )
+        st.dataframe(preview_df, use_container_width=True, hide_index=True)
+    elif has_enhanced_rules:
+        # Use enhanced rule engine for preview
+        preview_df = create_enhanced_rule_preview(
+            st.session_state.enhanced_rule_engine,
+            st.session_state.uploader.uploaded_data.main_df,
+            num_samples=5,
+        )
+        st.dataframe(preview_df, use_container_width=True, hide_index=True)
+
+    st.divider()
 
     # Navigation
     col1, col2 = st.columns([1, 1])

@@ -657,10 +657,10 @@ def evaluate_with_enhanced_engine(
 
                     # Determine outcome based on match/no-match
                     if outcome_str == "ACCEPTED":
-                        outcome = DecisionOutcome.ACCEPT
+                        outcome = DecisionOutcome.ACCEPTED
                         break
                     elif outcome_str == "REJECTED":
-                        outcome = DecisionOutcome.REJECT
+                        outcome = DecisionOutcome.REJECTED
                         break
                     elif outcome_str == "RECONSIDER":
                         outcome = DecisionOutcome.RECONSIDER
@@ -682,17 +682,17 @@ def evaluate_with_enhanced_engine(
                 # Use error outcome
                 outcome_str = rule.outcome_on_error.value
                 if outcome_str == "ACCEPTED":
-                    outcome = DecisionOutcome.ACCEPT
+                    outcome = DecisionOutcome.ACCEPTED
                 elif outcome_str == "REJECTED":
-                    outcome = DecisionOutcome.REJECT
+                    outcome = DecisionOutcome.REJECTED
                 else:
                     outcome = DecisionOutcome.RECONSIDER
                 score = 30.0
 
         # Count outcomes
-        if outcome == DecisionOutcome.ACCEPT:
+        if outcome == DecisionOutcome.ACCEPTED:
             accepted_count += 1
-        elif outcome == DecisionOutcome.REJECT:
+        elif outcome == DecisionOutcome.REJECTED:
             rejected_count += 1
         else:
             reconsider_count += 1
@@ -715,6 +715,68 @@ def evaluate_with_enhanced_engine(
         processing_time_ms=processing_time_ms,
         errors=errors,
     )
+
+
+def render_mermaid_diagram(mermaid_code: str, height: int = 500) -> None:
+    """Render a Mermaid diagram using HTML component with Mermaid.js.
+
+    Args:
+        mermaid_code: The Mermaid diagram code
+        height: Height of the diagram container in pixels
+    """
+    import streamlit.components.v1 as components
+
+    # HTML template with Mermaid.js CDN
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+        <style>
+            body {{
+                margin: 0;
+                padding: 10px;
+                background-color: #ffffff;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }}
+            .mermaid {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: {height - 40}px;
+            }}
+            /* Custom styling for nodes */
+            .node rect, .node circle, .node ellipse, .node polygon, .node path {{
+                stroke-width: 2px !important;
+            }}
+            .edgeLabel {{
+                background-color: #ffffff !important;
+                padding: 2px 4px !important;
+                border-radius: 4px !important;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="mermaid">
+{mermaid_code}
+        </div>
+        <script>
+            mermaid.initialize({{
+                startOnLoad: true,
+                theme: 'default',
+                flowchart: {{
+                    useMaxWidth: true,
+                    htmlLabels: true,
+                    curve: 'basis'
+                }},
+                securityLevel: 'loose'
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+    components.html(html_template, height=height, scrolling=True)
 
 
 def render_dataset_pairing_config(prefix: str) -> dict:
@@ -1532,12 +1594,8 @@ def render_preview_step():
             st.session_state.enhanced_rule_engine
         )
 
-        # Display using Streamlit's native mermaid support
-        st.markdown(f"""
-        ```mermaid
-        {mermaid_code}
-        ```
-        """)
+        # Render Mermaid using HTML component with Mermaid.js
+        render_mermaid_diagram(mermaid_code)
 
         # Also show rule summary as expandable details
         with st.expander("📋 Rule Details", expanded=False):

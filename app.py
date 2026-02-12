@@ -101,6 +101,12 @@ if "use_enhanced_engine" not in st.session_state:
 if "rule_audit_log" not in st.session_state:
     st.session_state.rule_audit_log = []
 
+# Edit mode state for rules
+if "editing_rule_id" not in st.session_state:
+    st.session_state.editing_rule_id = None
+if "editing_rule_type" not in st.session_state:
+    st.session_state.editing_rule_type = None
+
 
 def main():
     """Main application entry point."""
@@ -598,6 +604,11 @@ def evaluate_with_enhanced_engine(
 ) -> "BatchEvaluationResult":
     """Evaluate all rows using the enhanced rule engine.
 
+    All rule types are evaluated using code execution (no AI calls per row):
+    - Condition rules: Evaluated using code-based operators
+    - Function rules: Executed using predefined Python functions
+    - AI rules: Executed using pre-generated Python code
+
     Args:
         engine: The enhanced rule engine with rules defined
         df: DataFrame to evaluate
@@ -608,6 +619,8 @@ def evaluate_with_enhanced_engine(
     """
     from src.logic_engine import EvaluationResult, BatchEvaluationResult
     from src.rules import DecisionOutcome
+    from src.predefined_functions import execute_function
+    from src.ai_code_generator import SafeExecutionEnvironment
     import time
 
     start_time = time.time()
@@ -640,8 +653,10 @@ def evaluate_with_enhanced_engine(
 
             try:
                 match = False
+                outcome_str = None
 
                 if rule.rule_type == EnhancedRuleType.CONDITION:
+                    # Condition rules: code-based evaluation
                     col_value = row.get(rule.column, None)
                     if col_value is not None:
                         match = _evaluate_condition(col_value, rule.operator, rule.value)
@@ -655,7 +670,86 @@ def evaluate_with_enhanced_engine(
                         outcome_str = rule.outcome_on_no_match.value
                         rule_details[rule.name] = {"matched": False, "outcome": outcome_str}
 
-                    # Determine outcome based on match/no-match
+                elif rule.rule_type == EnhancedRuleType.FUNCTION:
+                    # Function rules: execute predefined Python function
+                    try:
+                        match, func_details = execute_function(
+                            rule.function_name,
+                            row,
+                            rule.parameters
+                        )
+                        if match:
+                            matched_rules.append(rule.name)
+                            outcome_str = rule.outcome_on_match.value
+                            rule_details[rule.name] = {
+                                "matched": True,
+                                "outcome": outcome_str,
+                                "function": rule.function_name,
+                                "details": func_details
+                            }
+                            score = 80.0
+                        else:
+                            outcome_str = rule.outcome_on_no_match.value
+                            rule_details[rule.name] = {
+                                "matched": False,
+                                "outcome": outcome_str,
+                                "function": rule.function_name,
+                                "details": func_details
+                            }
+                    except Exception as func_err:
+                        errors.append(f"Function error in {rule.name}: {str(func_err)}")
+                        outcome_str = rule.outcome_on_error.value
+                        rule_details[rule.name] = {"error": str(func_err)}
+                        score = 30.0
+
+                elif rule.rule_type == EnhancedRuleType.AI_GENERATED:
+                    # AI rules: execute pre-generated code (no AI call per row)
+                    if rule.generated_code:
+                        try:
+                            success, result, error = SafeExecutionEnvironment.execute(
+                                rule.generated_code,
+                                row,
+                                df
+                            )
+                            if success:
+                                match = bool(result)
+                                if match:
+                                    matched_rules.append(rule.name)
+                                    outcome_str = rule.outcome_on_match.value
+                                    rule_details[rule.name] = {
+                                        "matched": True,
+                                        "outcome": outcome_str,
+                                        "code_executed": True
+                                    }
+                                    score = 75.0
+                                else:
+                                    outcome_str = rule.outcome_on_no_match.value
+                                    rule_details[rule.name] = {
+                                        "matched": False,
+                                        "outcome": outcome_str,
+                                        "code_executed": True
+                                    }
+                            else:
+                                errors.append(f"Code execution error in {rule.name}: {error}")
+                                outcome_str = rule.outcome_on_error.value
+                                rule_details[rule.name] = {"error": error, "code_executed": False}
+                                score = 30.0
+                        except Exception as code_err:
+                            errors.append(f"Code error in {rule.name}: {str(code_err)}")
+                            outcome_str = rule.outcome_on_error.value
+                            rule_details[rule.name] = {"error": str(code_err)}
+                            score = 30.0
+                    else:
+                        # No generated code - skip this rule with warning
+                        errors.append(f"AI rule {rule.name} has no generated code - skipped")
+                        rule_details[rule.name] = {
+                            "skipped": True,
+                            "reason": "No generated code"
+                        }
+                        continue  # Skip to next rule
+
+                # Determine outcome based on match/no-match
+                if outcome_str:
                     if outcome_str == "ACCEPTED":
                         outcome = DecisionOutcome.ACCEPTED
                         break
@@ -666,16 +760,6 @@ def evaluate_with_enhanced_engine(
                         outcome = DecisionOutcome.RECONSIDER
                         break
                     # CONTINUE means keep evaluating next rule
-
-                elif rule.rule_type == EnhancedRuleType.FUNCTION:
-                    # For function rules, we note them but can't fully evaluate without execution
-                    matched_rules.append(f"{rule.name} (function - requires execution)")
-                    rule_details[rule.name] = {"type": "function", "function": rule.function_name}
-
-                elif rule.rule_type == EnhancedRuleType.AI_GENERATED:
-                    # For AI rules, we note them but can't evaluate without AI execution
-                    matched_rules.append(f"{rule.name} (AI - requires execution)")
-                    rule_details[rule.name] = {"type": "ai", "prompt": rule.prompt[:50]}
 
             except Exception as e:
                 errors.append(f"Error evaluating rule {rule.name} on row {row_idx}: {str(e)}")
@@ -867,6 +951,23 @@ def render_condition_rule_builder():
     st.subheader("Condition-Based Rules")
     st.markdown("Create rules based on column values with comparison operators.")
 
+    # Check if we're editing an existing rule
+    editing_rule = None
+    is_editing = (
+        st.session_state.editing_rule_id is not None and
+        st.session_state.editing_rule_type == "condition"
+    )
+    if is_editing:
+        editing_rule = st.session_state.enhanced_rule_engine.rules.get(
+            st.session_state.editing_rule_id
+        )
+        if editing_rule:
+            st.info(f"Editing rule: **{editing_rule.name}** ({editing_rule.rule_id})")
+            if st.button("Cancel Edit", key="cancel_cond_edit"):
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
+                st.rerun()
+
     # Dataset pairing configuration (outside form for dynamic updates)
     dataset_config = render_dataset_pairing_config("cond_rule")
 
@@ -874,9 +975,14 @@ def render_condition_rule_builder():
         col1, col2 = st.columns(2)
 
         with col1:
-            rule_id = st.text_input("Rule ID", value=f"cond_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}")
-            rule_name = st.text_input("Rule Name")
-            rule_priority = st.slider("Priority", 0, 100, 50)
+            # Pre-fill values if editing
+            default_id = editing_rule.rule_id if editing_rule else f"cond_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}"
+            default_name = editing_rule.name if editing_rule else ""
+            default_priority = editing_rule.priority if editing_rule else 50
+
+            rule_id = st.text_input("Rule ID", value=default_id, disabled=is_editing)
+            rule_name = st.text_input("Rule Name", value=default_name)
+            rule_priority = st.slider("Priority", 0, 100, default_priority)
 
         with col2:
             # Get available columns from uploaded data
@@ -888,44 +994,74 @@ def render_condition_rule_builder():
             if dataset_config["use_external_dataset"] and dataset_config["lookup_columns"]:
                 columns = columns + [f"[EXT] {col}" for col in dataset_config["lookup_columns"]]
 
-            column = st.selectbox("Column to Evaluate", columns)
+            # Get default column index if editing
+            default_col_idx = 0
+            if editing_rule and editing_rule.column in columns:
+                default_col_idx = columns.index(editing_rule.column)
+
+            column = st.selectbox("Column to Evaluate", columns, index=default_col_idx)
+
+            # Get default operator if editing
+            operator_values = [op.value for op in ConditionOperator]
+            default_op_idx = 0
+            if editing_rule:
+                op_val = editing_rule.operator.value
+                if op_val in operator_values:
+                    default_op_idx = operator_values.index(op_val)
+
             operator = st.selectbox(
                 "Operator",
-                options=[op.value for op in ConditionOperator],
+                options=operator_values,
+                index=default_op_idx,
                 format_func=lambda x: x.replace("_", " ").title()
             )
-            value = st.text_input("Value")
+
+            default_value = str(editing_rule.value) if editing_rule else ""
+            value = st.text_input("Value", value=default_value)
 
         # Outcome configuration
         st.markdown("**Outcome Configuration**")
         outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
+
+        # Get default outcome indices if editing
+        def get_outcome_index(outcome_value: str) -> int:
+            try:
+                return outcome_options.index(outcome_value)
+            except ValueError:
+                return 0
+
+        default_match_idx = get_outcome_index(editing_rule.outcome_on_match.value) if editing_rule else 0
+        default_no_match_idx = get_outcome_index(editing_rule.outcome_on_no_match.value) if editing_rule else 3
+        default_error_idx = get_outcome_index(editing_rule.outcome_on_error.value) if editing_rule else 2
 
         col_out1, col_out2, col_out3 = st.columns(3)
         with col_out1:
             outcome = st.selectbox(
                 "If Rule Matches",
                 options=outcome_options,
-                index=0,
+                index=default_match_idx,
                 help="Action when the condition is satisfied"
             )
         with col_out2:
             outcome_no_match = st.selectbox(
                 "If Rule Not Matched",
                 options=outcome_options,
-                index=3,  # CONTINUE
+                index=default_no_match_idx,
                 help="Action when the condition is not satisfied"
             )
         with col_out3:
             outcome_error = st.selectbox(
                 "On Error",
                 options=outcome_options,
-                index=2,  # RECONSIDER
+                index=default_error_idx,
                 help="Action when an error occurs during evaluation"
             )
 
-        description = st.text_area("Description (optional)")
+        default_desc = editing_rule.description if editing_rule else ""
+        description = st.text_area("Description (optional)", value=default_desc)
 
-        submitted = st.form_submit_button("Add Condition Rule")
+        button_label = "Update Condition Rule" if is_editing else "Add Condition Rule"
+        submitted = st.form_submit_button(button_label)
 
         if submitted and rule_name and value:
             try:
@@ -960,7 +1096,12 @@ def render_condition_rule_builder():
                     st.session_state.rule_dataset_configs[rule_id] = dataset_config
 
                 st.session_state.enhanced_rule_engine.add_rule(rule)
-                st.success(f"Added condition rule: {rule_name}")
+                action = "Updated" if is_editing else "Added"
+                st.success(f"{action} condition rule: {rule_name}")
+
+                # Clear editing state
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
                 st.rerun()
             except Exception as e:
                 st.error(f"Error adding rule: {e}")
@@ -989,15 +1130,40 @@ def render_condition_rule_builder():
                 if rule.description:
                     st.markdown(f"**Description:** {rule.description}")
 
-                if st.button("Delete", key=f"del_cond_{rule.rule_id}"):
-                    st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
-                    st.rerun()
+                # Edit and Delete buttons
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("Edit", key=f"edit_cond_{rule.rule_id}"):
+                        st.session_state.editing_rule_id = rule.rule_id
+                        st.session_state.editing_rule_type = "condition"
+                        st.rerun()
+                with btn_col2:
+                    if st.button("Delete", key=f"del_cond_{rule.rule_id}"):
+                        st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
+                        st.rerun()
 
 
 def render_function_rule_builder():
     """Render the function-based rule builder interface."""
     st.subheader("Function-Based Rules")
     st.markdown("Create rules using predefined Python functions with custom parameters.")
+
+    # Check if we're editing an existing rule
+    editing_rule = None
+    is_editing = (
+        st.session_state.editing_rule_id is not None and
+        st.session_state.editing_rule_type == "function"
+    )
+    if is_editing:
+        editing_rule = st.session_state.enhanced_rule_engine.rules.get(
+            st.session_state.editing_rule_id
+        )
+        if editing_rule:
+            st.info(f"Editing rule: **{editing_rule.name}** ({editing_rule.rule_id})")
+            if st.button("Cancel Edit", key="cancel_func_edit"):
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
+                st.rerun()
 
     # Dataset pairing configuration (outside form for dynamic updates)
     dataset_config = render_dataset_pairing_config("func_rule")
@@ -1019,9 +1185,16 @@ def render_function_rule_builder():
 
     # Function selection OUTSIDE the form for dynamic updates
     function_names = list(function_registry.list_functions().keys())
+
+    # Get default function index if editing
+    default_func_idx = 0
+    if editing_rule and editing_rule.function_name in function_names:
+        default_func_idx = function_names.index(editing_rule.function_name)
+
     selected_function = st.selectbox(
         "Select Function",
         function_names,
+        index=default_func_idx,
         key="func_selector",
         on_change=lambda: setattr(st.session_state, 'selected_function', st.session_state.func_selector)
     )
@@ -1036,9 +1209,14 @@ def render_function_rule_builder():
         col1, col2 = st.columns(2)
 
         with col1:
-            rule_id = st.text_input("Rule ID", value=f"func_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}")
-            rule_name = st.text_input("Rule Name")
-            rule_priority = st.slider("Priority", 0, 100, 50)
+            # Pre-fill values if editing
+            default_id = editing_rule.rule_id if editing_rule else f"func_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}"
+            default_name = editing_rule.name if editing_rule else ""
+            default_priority = editing_rule.priority if editing_rule else 50
+
+            rule_id = st.text_input("Rule ID", value=default_id, disabled=is_editing)
+            rule_name = st.text_input("Rule Name", value=default_name)
+            rule_priority = st.slider("Priority", 0, 100, default_priority)
 
         with col2:
             # Get function parameters for the selected function
@@ -1046,7 +1224,11 @@ def render_function_rule_builder():
             if func_info and func_info.get("parameters"):
                 st.markdown("**Function Parameters:**")
                 for param_name, param_info in func_info["parameters"].items():
-                    default = param_info.get("default", "")
+                    # Get default from editing rule if available
+                    if editing_rule and param_name in editing_rule.parameters:
+                        default = editing_rule.parameters[param_name]
+                    else:
+                        default = param_info.get("default", "")
                     param_type = param_info.get("type", "str")
                     param_value = st.text_input(
                         f"{param_name} ({param_type})",
@@ -1072,12 +1254,23 @@ def render_function_rule_builder():
         st.markdown("**Outcome Configuration**")
         outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
 
+        # Get default outcome indices if editing
+        def get_outcome_index(outcome_value: str) -> int:
+            try:
+                return outcome_options.index(outcome_value)
+            except ValueError:
+                return 0
+
+        default_match_idx = get_outcome_index(editing_rule.outcome_on_match.value) if editing_rule else 0
+        default_no_match_idx = get_outcome_index(editing_rule.outcome_on_no_match.value) if editing_rule else 3
+        default_error_idx = get_outcome_index(editing_rule.outcome_on_error.value) if editing_rule else 2
+
         col_out1, col_out2, col_out3 = st.columns(3)
         with col_out1:
             outcome = st.selectbox(
                 "If Function Returns True",
                 options=outcome_options,
-                index=0,
+                index=default_match_idx,
                 key="func_outcome_match",
                 help="Action when the function returns True"
             )
@@ -1085,7 +1278,7 @@ def render_function_rule_builder():
             outcome_no_match = st.selectbox(
                 "If Function Returns False",
                 options=outcome_options,
-                index=3,  # CONTINUE
+                index=default_no_match_idx,
                 key="func_outcome_no_match",
                 help="Action when the function returns False"
             )
@@ -1093,14 +1286,16 @@ def render_function_rule_builder():
             outcome_error = st.selectbox(
                 "On Error",
                 options=outcome_options,
-                index=2,  # RECONSIDER
+                index=default_error_idx,
                 key="func_outcome_error",
                 help="Action when an error occurs during execution"
             )
 
-        description = st.text_area("Description (optional)")
+        default_desc = editing_rule.description if editing_rule else ""
+        description = st.text_area("Description (optional)", value=default_desc)
 
-        submitted = st.form_submit_button("Add Function Rule")
+        button_label = "Update Function Rule" if is_editing else "Add Function Rule"
+        submitted = st.form_submit_button(button_label)
 
         if submitted and rule_name:
             try:
@@ -1128,7 +1323,12 @@ def render_function_rule_builder():
                     st.session_state.rule_dataset_configs[rule_id] = dataset_config
 
                 st.session_state.enhanced_rule_engine.add_rule(rule)
-                st.success(f"Added function rule: {rule_name}")
+                action = "Updated" if is_editing else "Added"
+                st.success(f"{action} function rule: {rule_name}")
+
+                # Clear editing state
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
                 st.rerun()
             except Exception as e:
                 st.error(f"Error adding rule: {e}")
@@ -1156,15 +1356,40 @@ def render_function_rule_builder():
                     st.markdown(f"**On Error:** {rule.outcome_on_error.value}")
                 st.markdown(f"**Enabled:** {rule.enabled}")
 
-                if st.button("Delete", key=f"del_func_{rule.rule_id}"):
-                    st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
-                    st.rerun()
+                # Edit and Delete buttons
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("Edit", key=f"edit_func_{rule.rule_id}"):
+                        st.session_state.editing_rule_id = rule.rule_id
+                        st.session_state.editing_rule_type = "function"
+                        st.rerun()
+                with btn_col2:
+                    if st.button("Delete", key=f"del_func_{rule.rule_id}"):
+                        st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
+                        st.rerun()
 
 
 def render_ai_rule_builder():
     """Render the AI-powered rule builder interface."""
     st.subheader("AI-Powered Rules")
     st.markdown("Create rules using natural language that AI converts to executable code.")
+
+    # Check if we're editing an existing rule
+    editing_rule = None
+    is_editing = (
+        st.session_state.editing_rule_id is not None and
+        st.session_state.editing_rule_type == "ai"
+    )
+    if is_editing:
+        editing_rule = st.session_state.enhanced_rule_engine.rules.get(
+            st.session_state.editing_rule_id
+        )
+        if editing_rule:
+            st.info(f"Editing rule: **{editing_rule.name}** ({editing_rule.rule_id})")
+            if st.button("Cancel Edit", key="cancel_ai_edit"):
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
+                st.rerun()
 
     # Check AI configuration
     has_azure = os.environ.get("AZURE_OPENAI_API_KEY") and os.environ.get("AZURE_OPENAI_ENDPOINT")
@@ -1180,19 +1405,36 @@ def render_ai_rule_builder():
         col1, col2 = st.columns(2)
 
         with col1:
-            rule_id = st.text_input("Rule ID", value=f"ai_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}")
-            rule_name = st.text_input("Rule Name")
-            rule_priority = st.slider("Priority", 0, 100, 50)
+            # Pre-fill values if editing
+            default_id = editing_rule.rule_id if editing_rule else f"ai_rule_{len(st.session_state.enhanced_rule_engine.rules) + 1}"
+            default_name = editing_rule.name if editing_rule else ""
+            default_priority = editing_rule.priority if editing_rule else 50
+
+            rule_id = st.text_input("Rule ID", value=default_id, disabled=is_editing)
+            rule_name = st.text_input("Rule Name", value=default_name)
+            rule_priority = st.slider("Priority", 0, 100, default_priority)
 
         with col2:
+            # Get default provider if editing
+            provider_options = ["azure_openai", "openrouter"]
+            default_provider_idx = 0
+            if editing_rule and editing_rule.model:
+                if "openai" in editing_rule.model.lower() or editing_rule.model.startswith("gpt"):
+                    default_provider_idx = 0
+                else:
+                    default_provider_idx = 1
+
             ai_provider = st.selectbox(
                 "AI Provider",
-                options=["azure_openai", "openrouter"],
+                options=provider_options,
+                index=default_provider_idx,
                 format_func=lambda x: "Azure OpenAI" if x == "azure_openai" else "OpenRouter"
             )
 
+        default_prompt = editing_rule.prompt if editing_rule else ""
         prompt = st.text_area(
             "Natural Language Rule Description",
+            value=default_prompt,
             placeholder="E.g., Accept the work order if priority is High and cost is under $5000",
             height=100
         )
@@ -1201,12 +1443,23 @@ def render_ai_rule_builder():
         st.markdown("**Outcome Configuration**")
         outcome_options = ["ACCEPTED", "REJECTED", "RECONSIDER", "CONTINUE"]
 
+        # Get default outcome indices if editing
+        def get_outcome_index(outcome_value: str) -> int:
+            try:
+                return outcome_options.index(outcome_value)
+            except ValueError:
+                return 0
+
+        default_match_idx = get_outcome_index(editing_rule.outcome_on_match.value) if editing_rule else 0
+        default_no_match_idx = get_outcome_index(editing_rule.outcome_on_no_match.value) if editing_rule else 3
+        default_error_idx = get_outcome_index(editing_rule.outcome_on_error.value) if editing_rule else 2
+
         col_out1, col_out2, col_out3 = st.columns(3)
         with col_out1:
             outcome = st.selectbox(
                 "If AI Returns True",
                 options=outcome_options,
-                index=0,
+                index=default_match_idx,
                 key="ai_outcome_match",
                 help="Action when the AI evaluation returns True"
             )
@@ -1214,7 +1467,7 @@ def render_ai_rule_builder():
             outcome_no_match = st.selectbox(
                 "If AI Returns False",
                 options=outcome_options,
-                index=3,  # CONTINUE
+                index=default_no_match_idx,
                 key="ai_outcome_no_match",
                 help="Action when the AI evaluation returns False"
             )
@@ -1222,14 +1475,16 @@ def render_ai_rule_builder():
             outcome_error = st.selectbox(
                 "On Error",
                 options=outcome_options,
-                index=2,  # RECONSIDER
+                index=default_error_idx,
                 key="ai_outcome_error",
                 help="Action when an error occurs during AI evaluation"
             )
 
-        description = st.text_area("Description (optional)")
+        default_desc = editing_rule.description if editing_rule else ""
+        description = st.text_area("Description (optional)", value=default_desc)
 
-        submitted = st.form_submit_button("Add AI Rule")
+        button_label = "Update AI Rule" if is_editing else "Add AI Rule"
+        submitted = st.form_submit_button(button_label)
 
         if submitted and rule_name and prompt:
             try:
@@ -1264,7 +1519,12 @@ def render_ai_rule_builder():
                     st.session_state.rule_dataset_configs[rule_id] = dataset_config
 
                 st.session_state.enhanced_rule_engine.add_rule(rule)
-                st.success(f"Added AI rule: {rule_name}")
+                action = "Updated" if is_editing else "Added"
+                st.success(f"{action} AI rule: {rule_name}")
+
+                # Clear editing state
+                st.session_state.editing_rule_id = None
+                st.session_state.editing_rule_type = None
                 st.rerun()
             except Exception as e:
                 st.error(f"Error adding rule: {e}")
@@ -1295,9 +1555,17 @@ def render_ai_rule_builder():
                     st.markdown("**Generated Code:**")
                     st.code(rule.generated_code, language="python")
 
-                if st.button("Delete", key=f"del_ai_{rule.rule_id}"):
-                    st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
-                    st.rerun()
+                # Edit and Delete buttons
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("Edit", key=f"edit_ai_{rule.rule_id}"):
+                        st.session_state.editing_rule_id = rule.rule_id
+                        st.session_state.editing_rule_type = "ai"
+                        st.rerun()
+                with btn_col2:
+                    if st.button("Delete", key=f"del_ai_{rule.rule_id}"):
+                        st.session_state.enhanced_rule_engine.remove_rule(rule.rule_id)
+                        st.rerun()
 
 
 def render_supporting_datasets():
@@ -1721,6 +1989,89 @@ def render_processing_step():
     total_rows = len(df)
 
     st.markdown(f"**Total rows to process:** {total_rows}")
+
+    # Show AI rules that need code generation
+    if has_enhanced_rules:
+        ai_rules = [r for r in st.session_state.enhanced_rule_engine.rules.values()
+                    if r.rule_type == EnhancedRuleType.AI_GENERATED]
+        if ai_rules:
+            st.subheader("AI Rule Code Generation")
+            st.markdown("""
+            AI rules require code generation before processing. This converts natural language
+            prompts into executable Python code **once**, then the code runs for all rows
+            without additional AI calls.
+            """)
+
+            # Show status of each AI rule
+            for rule in ai_rules:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if rule.generated_code:
+                        st.success(f"**{rule.name}**: Code generated")
+                    else:
+                        st.warning(f"**{rule.name}**: Code not yet generated")
+                with col2:
+                    if st.button("Generate", key=f"gen_code_{rule.rule_id}"):
+                        with st.spinner(f"Generating code for {rule.name}..."):
+                            try:
+                                # Get column info from uploaded data
+                                column_info = {}
+                                if st.session_state.uploader.uploaded_data is not None:
+                                    for col in st.session_state.uploader.uploaded_data.main_df.columns:
+                                        column_info[col] = f"Column from dataset"
+
+                                # Create code generator
+                                code_gen = create_code_generator(
+                                    provider=AIProvider.AZURE_OPENAI,
+                                    fallback_provider=AIProvider.OPENROUTER
+                                )
+
+                                # Generate code from prompt
+                                generated = code_gen.generate_code(rule.prompt, column_info)
+
+                                if generated.validation_passed:
+                                    # Update the rule with generated code
+                                    rule.generated_code = generated.code
+                                    rule.last_generated = generated.generated_at
+                                    rule.generation_model = generated.model
+                                    st.success(f"Code generated successfully for {rule.name}")
+                                    st.code(generated.code, language="python")
+                                else:
+                                    st.error(f"Code validation failed: {'; '.join(generated.validation_errors)}")
+                            except Exception as e:
+                                st.error(f"Error generating code: {e}")
+                        st.rerun()
+
+            # Button to generate all
+            if st.button("Generate All AI Rule Codes", type="secondary"):
+                with st.spinner("Generating code for all AI rules..."):
+                    column_info = {}
+                    if st.session_state.uploader.uploaded_data is not None:
+                        for col in st.session_state.uploader.uploaded_data.main_df.columns:
+                            column_info[col] = f"Column from dataset"
+
+                    code_gen = create_code_generator(
+                        provider=AIProvider.AZURE_OPENAI,
+                        fallback_provider=AIProvider.OPENROUTER
+                    )
+
+                    success_count = 0
+                    for rule in ai_rules:
+                        if not rule.generated_code:
+                            try:
+                                generated = code_gen.generate_code(rule.prompt, column_info)
+                                if generated.validation_passed:
+                                    rule.generated_code = generated.code
+                                    rule.last_generated = generated.generated_at
+                                    rule.generation_model = generated.model
+                                    success_count += 1
+                            except Exception as e:
+                                logger.error(f"Failed to generate code for {rule.name}: {e}")
+
+                    st.success(f"Generated code for {success_count} AI rules")
+                st.rerun()
+
+            st.divider()
 
     if st.button("Start Processing", type="primary"):
         # Progress tracking

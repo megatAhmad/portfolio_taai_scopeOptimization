@@ -591,6 +591,132 @@ def _evaluate_condition(value: Any, operator: "ConditionOperator", compare_value
         return False
 
 
+def evaluate_with_enhanced_engine(
+    engine: "EnhancedRuleEngine",
+    df: pd.DataFrame,
+    progress_callback=None
+) -> "BatchEvaluationResult":
+    """Evaluate all rows using the enhanced rule engine.
+
+    Args:
+        engine: The enhanced rule engine with rules defined
+        df: DataFrame to evaluate
+        progress_callback: Optional callback for progress updates
+
+    Returns:
+        BatchEvaluationResult with evaluation results
+    """
+    from src.logic_engine import EvaluationResult, BatchEvaluationResult
+    from src.rules import DecisionOutcome
+    import time
+
+    start_time = time.time()
+    results = []
+    total_rows = len(df)
+    accepted_count = 0
+    rejected_count = 0
+    reconsider_count = 0
+    errors = []
+
+    # Sort rules by priority
+    sorted_rules = sorted(
+        engine.rules.values(),
+        key=lambda r: r.priority,
+        reverse=True
+    )
+
+    for idx, (row_idx, row) in enumerate(df.iterrows()):
+        if progress_callback:
+            progress_callback(idx + 1, total_rows)
+
+        matched_rules = []
+        outcome = DecisionOutcome.RECONSIDER  # Default
+        rule_details = {}
+        score = 50.0  # Default confidence
+
+        for rule in sorted_rules:
+            if not rule.enabled:
+                continue
+
+            try:
+                match = False
+
+                if rule.rule_type == EnhancedRuleType.CONDITION:
+                    col_value = row.get(rule.column, None)
+                    if col_value is not None:
+                        match = _evaluate_condition(col_value, rule.operator, rule.value)
+
+                    if match:
+                        matched_rules.append(rule.name)
+                        outcome_str = rule.outcome_on_match.value
+                        rule_details[rule.name] = {"matched": True, "outcome": outcome_str}
+                        score = 85.0
+                    else:
+                        outcome_str = rule.outcome_on_no_match.value
+                        rule_details[rule.name] = {"matched": False, "outcome": outcome_str}
+
+                    # Determine outcome based on match/no-match
+                    if outcome_str == "ACCEPTED":
+                        outcome = DecisionOutcome.ACCEPT
+                        break
+                    elif outcome_str == "REJECTED":
+                        outcome = DecisionOutcome.REJECT
+                        break
+                    elif outcome_str == "RECONSIDER":
+                        outcome = DecisionOutcome.RECONSIDER
+                        break
+                    # CONTINUE means keep evaluating next rule
+
+                elif rule.rule_type == EnhancedRuleType.FUNCTION:
+                    # For function rules, we note them but can't fully evaluate without execution
+                    matched_rules.append(f"{rule.name} (function - requires execution)")
+                    rule_details[rule.name] = {"type": "function", "function": rule.function_name}
+
+                elif rule.rule_type == EnhancedRuleType.AI_GENERATED:
+                    # For AI rules, we note them but can't evaluate without AI execution
+                    matched_rules.append(f"{rule.name} (AI - requires execution)")
+                    rule_details[rule.name] = {"type": "ai", "prompt": rule.prompt[:50]}
+
+            except Exception as e:
+                errors.append(f"Error evaluating rule {rule.name} on row {row_idx}: {str(e)}")
+                # Use error outcome
+                outcome_str = rule.outcome_on_error.value
+                if outcome_str == "ACCEPTED":
+                    outcome = DecisionOutcome.ACCEPT
+                elif outcome_str == "REJECTED":
+                    outcome = DecisionOutcome.REJECT
+                else:
+                    outcome = DecisionOutcome.RECONSIDER
+                score = 30.0
+
+        # Count outcomes
+        if outcome == DecisionOutcome.ACCEPT:
+            accepted_count += 1
+        elif outcome == DecisionOutcome.REJECT:
+            rejected_count += 1
+        else:
+            reconsider_count += 1
+
+        results.append(EvaluationResult(
+            outcome=outcome,
+            score=score,
+            matched_rules=matched_rules,
+            rule_details=rule_details,
+        ))
+
+    processing_time_ms = (time.time() - start_time) * 1000
+
+    return BatchEvaluationResult(
+        results=results,
+        total_rows=total_rows,
+        accepted_count=accepted_count,
+        rejected_count=rejected_count,
+        reconsider_count=reconsider_count,
+        processing_time_ms=processing_time_ms,
+        errors=errors,
+    )
+
+
 def render_dataset_pairing_config(prefix: str) -> dict:
     """Render the dataset pairing configuration UI.
 
@@ -1412,7 +1538,11 @@ def render_processing_step():
     """Render the processing step."""
     st.header("Step 4: Process Data")
 
-    if st.session_state.rule_builder.current_ruleset is None:
+    # Check for rules (either standard or enhanced)
+    has_standard_rules = st.session_state.rule_builder.current_ruleset is not None
+    has_enhanced_rules = len(st.session_state.enhanced_rule_engine.rules) > 0
+
+    if not has_standard_rules and not has_enhanced_rules:
         st.warning("Please define rules first.")
         return
 
@@ -1477,12 +1607,6 @@ def render_processing_step():
     st.markdown(f"**Total rows to process:** {total_rows}")
 
     if st.button("Start Processing", type="primary"):
-        # Set up engine
-        st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
-        st.session_state.logic_engine.set_supporting_data(
-            st.session_state.uploader.get_supporting_datasets()
-        )
-
         # Progress tracking
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -1491,11 +1615,26 @@ def render_processing_step():
             progress_bar.progress(current / total)
             status_text.text(f"Processing row {current} of {total}...")
 
-        # Rule evaluation
+        # Rule evaluation - check which engine to use
         status_text.text("Evaluating rules...")
-        batch_result = st.session_state.logic_engine.evaluate_batch(
-            df, progress_callback=update_progress
-        )
+
+        if has_standard_rules:
+            # Use standard logic engine
+            st.session_state.logic_engine.ruleset = st.session_state.rule_builder.current_ruleset
+            st.session_state.logic_engine.set_supporting_data(
+                st.session_state.uploader.get_supporting_datasets()
+            )
+            batch_result = st.session_state.logic_engine.evaluate_batch(
+                df, progress_callback=update_progress
+            )
+        else:
+            # Use enhanced rule engine
+            batch_result = evaluate_with_enhanced_engine(
+                st.session_state.enhanced_rule_engine,
+                df,
+                progress_callback=update_progress
+            )
+
         st.session_state.evaluation_results = batch_result
 
         # AI justifications

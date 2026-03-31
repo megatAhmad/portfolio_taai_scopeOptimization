@@ -71,7 +71,7 @@ def run_classification(project_id: int, db: Session = Depends(get_db)):
     if original.file_path.endswith(".csv"):
         df = pd.read_csv(original.file_path)
     else:
-        df = pd.read_excel(original.file_path)
+        df = pd.read_excel(original.file_path, sheet_name=original.sheet_name)
         
     orig_mapping = db.query(models.ColumnMapping).filter(models.ColumnMapping.dataset_id == original.dataset_id).first()
     if not orig_mapping or not orig_mapping.equipment_id_col:
@@ -92,7 +92,7 @@ def run_classification(project_id: int, db: Session = Depends(get_db)):
         if ds.file_path.endswith(".csv"):
             supp_df = pd.read_csv(ds.file_path)
         else:
-            supp_df = pd.read_excel(ds.file_path)
+            supp_df = pd.read_excel(ds.file_path, sheet_name=ds.sheet_name)
             
         supp_df = supp_df[[mapping.equipment_id_col, mapping.category_col]].copy()
         

@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import json
 
-def ingest_dataset_profile(file_path: str) -> dict:
+def ingest_dataset_profile(file_path: str, sheet_name=None) -> dict:
     """
     Reads a CSV or Excel file, extracts columns, row count, 
     null rates, and distinct counts, and returns a schema dictionary.
@@ -12,9 +12,9 @@ def ingest_dataset_profile(file_path: str) -> dict:
         df = pd.read_csv(file_path, nrows=5000) # Read sample for profile
         total_rows = sum(1 for line in open(file_path)) - 1
     elif file_ext in [".xls", ".xlsx"]:
-        df = pd.read_excel(file_path, nrows=5000)
+        df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=5000)
         # For Excel, we might just use the sample count as we can't efficiently count all lines
-        total_rows = len(pd.read_excel(file_path, usecols=[0]))
+        total_rows = len(pd.read_excel(file_path, sheet_name=sheet_name, usecols=[0]))
     else:
         raise ValueError("Unsupported file format")
 

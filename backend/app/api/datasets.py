@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from typing import Optional
 from sqlalchemy.orm import Session
 from app import schemas, models
 from app.database import get_db
@@ -17,6 +18,7 @@ def upload_dataset(
     project_id: int,
     name: str = Form(...),
     is_original: bool = Form(False),
+    sheet_name: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -33,7 +35,7 @@ def upload_dataset(
         
     # Generate profile
     try:
-        schema_json = ingest_dataset_profile(file_path)
+        schema_json = ingest_dataset_profile(file_path, sheet_name)
         schema_json["filename"] = file.filename
     except Exception as e:
         schema_json = {"filename": file.filename, "error": str(e)}
@@ -43,6 +45,7 @@ def upload_dataset(
         name=name,
         is_original=is_original,
         file_path=file_path,
+        sheet_name=sheet_name,
         dataset_schema=schema_json
     )
     db.add(db_dataset)

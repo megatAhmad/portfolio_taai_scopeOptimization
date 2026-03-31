@@ -17,6 +17,7 @@ class Project(ProjectBase):
 class DatasetUploadBase(BaseModel):
     name: str
     is_original: bool = False
+    sheet_name: Optional[str] = None
 
 class DatasetUploadCreate(DatasetUploadBase):
     file_path: str

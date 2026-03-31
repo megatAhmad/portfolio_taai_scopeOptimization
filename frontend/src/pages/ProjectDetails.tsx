@@ -14,6 +14,7 @@ export function ProjectDetails() {
   const [mappingForm, setMappingForm] = useState<{equipment_id_col: string, category_col: string, mapping_rules: any[], derived_column_name: string, data_type: string, default_output: string, empty_output: string}>({ equipment_id_col: "", category_col: "", mapping_rules: [], derived_column_name: "", data_type: "text", default_output: "N/A", empty_output: "N/A" });
   const [useAdvanced, setUseAdvanced] = useState(false);
   const [isSavingMapping, setIsSavingMapping] = useState(false);
+  const [sheetNameModal, setSheetNameModal] = useState<{isOpen: boolean, file: File | null, sheetName: string}>({isOpen: false, file: null, sheetName: ""});
 
   useEffect(() => {
     fetchData();
@@ -37,12 +38,25 @@ export function ProjectDetails() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+      setSheetNameModal({isOpen: true, file, sheetName: ""});
+      return;
+    }
     
+    await proceedWithUpload(file, null);
+  };
+
+  const proceedWithUpload = async (file: File, sheetName: string | null) => {
     setIsUploading(true);
+    setSheetNameModal({isOpen: false, file: null, sheetName: ""});
     try {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("name", file.name);
+      if (sheetName) {
+        fd.append("sheet_name", sheetName);
+      }
       
       // If this is the first dataset, let's treat it as the original
       fd.append("is_original", datasets.length === 0 ? "true" : "false");
@@ -385,6 +399,38 @@ export function ProjectDetails() {
           </div>
         ))}
       </div>
+
+      {sheetNameModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-xl shadow-xl w-full max-w-sm">
+            <h3 className="text-lg font-semibold text-white mb-2">Excel Sheet Name</h3>
+            <p className="text-sm text-neutral-400 mb-4">Please specify the exact name of the sheet you want to import from this Excel file.</p>
+            <input 
+              autoFocus
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-white outline-none focus:ring-1 focus:ring-indigo-500 mb-5"
+              placeholder="e.g. Sheet1"
+              value={sheetNameModal.sheetName}
+              onChange={(e) => setSheetNameModal({...sheetNameModal, sheetName: e.target.value})}
+            />
+            <div className="flex justify-end gap-3">
+              <button 
+                className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition-colors"
+                onClick={() => {
+                   setSheetNameModal({isOpen: false, file: null, sheetName: ""});
+                   if (fileRef.current) fileRef.current.value = "";
+                }}
+              >Cancel</button>
+              <button 
+                className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                disabled={!sheetNameModal.sheetName.trim()}
+                onClick={() => {
+                  if (sheetNameModal.file) proceedWithUpload(sheetNameModal.file, sheetNameModal.sheetName);
+                }}
+              >Upload Dataset</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

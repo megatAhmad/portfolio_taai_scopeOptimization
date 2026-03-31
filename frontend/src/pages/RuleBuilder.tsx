@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { createRuleSet, getRuleSets } from "../api";
+import { createRuleSet, getRuleSets, getDatasets, getMapping } from "../api";
 import { Plus, Trash, Save, Network, Play, CheckCircle } from "lucide-react";
 
 type RuleNode = {
@@ -15,7 +15,7 @@ type RuleNode = {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const RuleGroup = ({ node, updateNode, removeNode }: { node: RuleNode; updateNode: (n: RuleNode) => void; removeNode: () => void }) => {
+const RuleGroup = ({ node, updateNode, removeNode, availableFields }: { node: RuleNode; updateNode: (n: RuleNode) => void; removeNode: () => void; availableFields: {label: string, value: string}[] }) => {
   const addRule = () => {
     updateNode({
       ...node,
@@ -58,8 +58,8 @@ const RuleGroup = ({ node, updateNode, removeNode }: { node: RuleNode; updateNod
       <div className="pl-4 border-l-2 border-neutral-800 space-y-3">
         {node.rules?.map((child) => (
           child.type === "group" ? 
-            <RuleGroup key={child.id} node={child} updateNode={(n) => updateChild(child.id, n)} removeNode={() => removeChild(child.id)} /> :
-            <RuleItem key={child.id} node={child} updateNode={(n) => updateChild(child.id, n)} removeNode={() => removeChild(child.id)} />
+            <RuleGroup key={child.id} node={child} updateNode={(n) => updateChild(child.id, n)} removeNode={() => removeChild(child.id)} availableFields={availableFields} /> :
+            <RuleItem key={child.id} node={child} updateNode={(n) => updateChild(child.id, n)} removeNode={() => removeChild(child.id)} availableFields={availableFields} />
         ))}
         {node.rules?.length === 0 && <span className="text-neutral-600 text-sm italic">Empty group</span>}
       </div>
@@ -67,16 +67,22 @@ const RuleGroup = ({ node, updateNode, removeNode }: { node: RuleNode; updateNod
   );
 };
 
-const RuleItem = ({ node, updateNode, removeNode }: { node: RuleNode; updateNode: (n: RuleNode) => void; removeNode: () => void }) => {
+const RuleItem = ({ node, updateNode, removeNode, availableFields }: { node: RuleNode; updateNode: (n: RuleNode) => void; removeNode: () => void; availableFields: {label: string, value: string}[] }) => {
   return (
     <div className="flex items-center gap-2 bg-neutral-950 p-2 rounded border border-neutral-800">
-      <input 
-        type="text" 
-        placeholder="Dataset.Column (e.g. Criticality.Rating)" 
-        value={node.field} 
+      <select 
+        value={node.field || ""} 
         onChange={(e) => updateNode({ ...node, field: e.target.value })}
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-sm text-white focus:outline-none flex-1"
-      />
+      >
+        <option value="">Select Column...</option>
+        {node.field && !availableFields.find(f => f.value === node.field) && (
+          <option value={node.field}>{node.field} (Missing)</option>
+        )}
+        {availableFields.map(f => (
+          <option key={f.value} value={f.value}>{f.label}</option>
+        ))}
+      </select>
       <select 
         value={node.operator} 
         onChange={(e) => updateNode({ ...node, operator: e.target.value })}
@@ -88,6 +94,8 @@ const RuleItem = ({ node, updateNode, removeNode }: { node: RuleNode; updateNode
         <option value="CONTAINS">CONTAINS</option>
         <option value=">">&gt;</option>
         <option value="<">&lt;</option>
+        <option value=">=">&gt;=</option>
+        <option value="<=">&lt;=</option>
       </select>
       <input 
         type="text" 
@@ -111,10 +119,39 @@ export function RuleBuilder() {
   const [activeTab, setActiveTab] = useState<"mustHave" | "goodToHave">("mustHave");
   const [isSaving, setIsSaving] = useState(false);
   const [ruleSets, setRuleSets] = useState<any[]>([]);
+  const [availableFields, setAvailableFields] = useState<{label: string, value: string}[]>([]);
 
   useEffect(() => {
     fetchRules();
+    fetchFields();
   }, [id]);
+
+  const fetchFields = async () => {
+    try {
+      const res = await getDatasets(Number(id));
+      const dsList = res.data;
+      const fields: {label: string, value: string}[] = [];
+      
+      for (const ds of dsList) {
+         if (ds.is_original) {
+            const cols = ds.dataset_schema?.columns || [];
+            cols.forEach((c: any) => {
+               fields.push({ label: `[Main] ${c.name}`, value: c.name });
+            });
+         } else {
+            try {
+               const mRes = await getMapping(Number(id), ds.dataset_id);
+               const map = mRes.data;
+               const finalCol = map.derived_column_name || `${ds.name}.${map.category_col}`;
+               if (map.category_col || map.derived_column_name) {
+                  fields.push({ label: `[Mapped] ${ds.name} ➔ ${finalCol}`, value: finalCol });
+               }
+            } catch (err) {}
+         }
+      }
+      setAvailableFields(fields);
+    } catch(err) {}
+  };
 
   const fetchRules = async () => {
     try {
@@ -215,9 +252,9 @@ export function RuleBuilder() {
             </div>
             
             {activeTab === 'mustHave' ? (
-              <RuleGroup node={mustHaveNode} updateNode={setMustHaveNode} removeNode={() => {}} />
+              <RuleGroup node={mustHaveNode} updateNode={setMustHaveNode} removeNode={() => {}} availableFields={availableFields} />
             ) : (
-              <RuleGroup node={goodToHaveNode} updateNode={setGoodToHaveNode} removeNode={() => {}} />
+              <RuleGroup node={goodToHaveNode} updateNode={setGoodToHaveNode} removeNode={() => {}} availableFields={availableFields} />
             )}
           </div>
         </div>

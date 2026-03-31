@@ -7,6 +7,7 @@ const api = axios.create({
 export const getProjects = () => api.get("/projects/");
 export const createProject = (data: { name: string }) => api.post("/projects/", data);
 export const getProject = (id: number) => api.get(`/projects/${id}`);
+export const deleteProject = (id: number) => api.delete(`/projects/${id}`);
 
 export const uploadDataset = (projectId: number, formData: FormData) => 
   api.post(`/projects/${projectId}/datasets/`, formData, {
@@ -14,6 +15,7 @@ export const uploadDataset = (projectId: number, formData: FormData) =>
   });
 
 export const getDatasets = (projectId: number) => api.get(`/projects/${projectId}/datasets/`);
+export const deleteDataset = (projectId: number, datasetId: number) => api.delete(`/projects/${projectId}/datasets/${datasetId}`);
 export const getMapping = (projectId: number, datasetId: number) => api.get(`/projects/${projectId}/datasets/${datasetId}/mapping`);
 export const createMapping = (projectId: number, datasetId: number, data: any) => api.post(`/projects/${projectId}/datasets/${datasetId}/mapping`, data);
 

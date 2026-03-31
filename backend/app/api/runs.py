@@ -39,6 +39,8 @@ def evaluate_node(row, node):
         if op == "!=": return row_val != val
         if op == "IN": return row_val in [v.strip() for v in val.split(",")]
         if op == "CONTAINS": return str(val).lower() in str(row_val).lower()
+        if op == "CONTAINS ANY": return any(k.strip().lower() in str(row_val).lower() for k in str(val).split(",") if k.strip())
+        if op == "CONTAINS ALL": return all(k.strip().lower() in str(row_val).lower() for k in str(val).split(",") if k.strip())
         if op == ">": return float(row_val) > float(val) if is_numeric() else str(row_val) > str(val)
         if op == "<": return float(row_val) < float(val) if is_numeric() else str(row_val) < str(val)
         if op == ">=": return float(row_val) >= float(val) if is_numeric() else str(row_val) >= str(val)
@@ -150,6 +152,10 @@ def run_classification(project_id: int, db: Session = Depends(get_db)):
                     try:
                         if op == "=" and rv == tgt: return out
                         if op == "!=" and rv != tgt: return out
+                        if op == "CONTAINS ANY" and data_type == "text":
+                            if any(k.strip().lower() in str(rv).lower() for k in str(tgt).split(",") if k.strip()): return out
+                        if op == "CONTAINS ALL" and data_type == "text":
+                            if all(k.strip().lower() in str(rv).lower() for k in str(tgt).split(",") if k.strip()): return out
                         if op == ">" and rv > tgt: return out
                         if op == "<" and rv < tgt: return out
                         if op == ">=" and rv >= tgt: return out

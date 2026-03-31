@@ -168,8 +168,10 @@ export function ProjectDetails() {
                   <FileText className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white flex items-center gap-2">
-                    {d.name} {d.is_original && <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">Canonical</span>}
+                  <h3 className="font-semibold text-lg text-white flex items-center gap-2" title={d.name}>
+                    <span className="truncate max-w-[200px]">{d.name}</span>
+                    {d.sheet_name && <span className="font-normal text-sm text-indigo-300 ml-1">[{d.sheet_name}]</span>}
+                    {d.is_original && <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">Canonical</span>}
                   </h3>
                   <p className="text-sm text-neutral-500 mt-1">
                     Rows: <span className="text-neutral-300 font-mono">{d.dataset_schema?.total_rows || '?'}</span> 
@@ -296,6 +298,8 @@ export function ProjectDetails() {
                                 <option value="=">=</option>
                                 <option value="!=">!=</option>
                                 <option value="BETWEEN">BETWEEN</option>
+                                <option value="CONTAINS ANY">CONTAINS ANY (comma sep)</option>
+                                <option value="CONTAINS ALL">CONTAINS ALL (comma sep)</option>
                              </select>
                              
                              {rule.operator === "BETWEEN" ? (

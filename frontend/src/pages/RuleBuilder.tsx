@@ -92,6 +92,8 @@ const RuleItem = ({ node, updateNode, removeNode, availableFields }: { node: Rul
         <option value="!=">!=</option>
         <option value="IN">IN</option>
         <option value="CONTAINS">CONTAINS</option>
+        <option value="CONTAINS ANY">CONTAINS ANY</option>
+        <option value="CONTAINS ALL">CONTAINS ALL</option>
         <option value=">">&gt;</option>
         <option value="<">&lt;</option>
         <option value=">=">&gt;=</option>
@@ -133,10 +135,11 @@ export function RuleBuilder() {
       const fields: {label: string, value: string}[] = [];
       
       for (const ds of dsList) {
+         const dsLabel = ds.sheet_name ? `${ds.name} [${ds.sheet_name}]` : ds.name;
          if (ds.is_original) {
             const cols = ds.dataset_schema?.columns || [];
             cols.forEach((c: any) => {
-               fields.push({ label: `[Main] ${c.name}`, value: c.name });
+               fields.push({ label: `[Main] ${dsLabel} ➔ ${c.name}`, value: c.name });
             });
          } else {
             try {
@@ -144,7 +147,7 @@ export function RuleBuilder() {
                const map = mRes.data;
                const finalCol = map.derived_column_name || `${ds.name}.${map.category_col}`;
                if (map.category_col || map.derived_column_name) {
-                  fields.push({ label: `[Mapped] ${ds.name} ➔ ${finalCol}`, value: finalCol });
+                  fields.push({ label: `[Mapped] ${dsLabel} ➔ ${finalCol}`, value: finalCol });
                }
             } catch (err) {}
          }
@@ -179,6 +182,7 @@ export function RuleBuilder() {
       };
       await createRuleSet(Number(id), { ast_json, status: "active" });
       await fetchRules();
+      alert("Rule Saved Successfully!");
     } catch (err) {
       console.error(err);
       alert("Failed to save rule.");

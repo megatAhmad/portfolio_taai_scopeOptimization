@@ -32,6 +32,11 @@ class ColumnMapping(Base):
     dataset_id = Column(Integer, ForeignKey("dataset_uploads.dataset_id"), unique=True)
     equipment_id_col = Column(String, nullable=False)
     category_col = Column(String, nullable=True) # None for the original dataset config
+    mapping_rules = Column(JSON, default=list, nullable=True)
+    derived_column_name = Column(String, nullable=True)
+    data_type = Column(String, nullable=True, default="text") # text, float, date
+    default_output = Column(String, nullable=True, default="N/A")
+    empty_output = Column(String, nullable=True, default="N/A")
 
     dataset = relationship("DatasetUpload", back_populates="column_mapping")
 

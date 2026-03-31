@@ -28,18 +28,23 @@ def evaluate_node(row, node):
         
         row_val = str(row.get(field, ""))
         
+        def is_numeric():
+            try:
+                float(row_val)
+                float(val)
+                return True
+            except: return False
+        
         if op == "=": return row_val == val
         if op == "!=": return row_val != val
         if op == "IN": return row_val in [v.strip() for v in val.split(",")]
-        if op == "CONTAINS": return val.lower() in row_val.lower()
-        if op == ">":
-            try: return float(row_val) > float(val)
-            except: return False
-        if op == "<":
-            try: return float(row_val) < float(val)
-            except: return False
-            
-    return False
+        if op == "CONTAINS": return str(val).lower() in str(row_val).lower()
+        if op == ">": return float(row_val) > float(val) if is_numeric() else str(row_val) > str(val)
+        if op == "<": return float(row_val) < float(val) if is_numeric() else str(row_val) < str(val)
+        if op == ">=": return float(row_val) >= float(val) if is_numeric() else str(row_val) >= str(val)
+        if op == "<=": return float(row_val) <= float(val) if is_numeric() else str(row_val) <= str(val)
+        
+        return False
 
 def evaluate_row(row, ast):
     if not ast: return "Not Needed"
@@ -97,11 +102,66 @@ def run_classification(project_id: int, db: Session = Depends(get_db)):
         
         supp_df[renamed_eq_col] = supp_df[mapping.equipment_id_col]
         
+        derived_name = getattr(mapping, "derived_column_name", None)
+        final_cat_col = derived_name if derived_name else renamed_cat_col
+        data_type = getattr(mapping, "data_type", "text")
+        
         supp_df = supp_df.rename(columns={
             mapping.equipment_id_col: orig_eq_col,
-            mapping.category_col: renamed_cat_col
+            mapping.category_col: final_cat_col
         })
         
+        # Apply mapping rules to derive logic
+        if getattr(mapping, "mapping_rules", None) and isinstance(mapping.mapping_rules, list) and len(mapping.mapping_rules) > 0:
+            def apply_mapping_rules(row_val):
+                empty_opt = getattr(mapping, "empty_output", "N/A")
+                if pd.isna(row_val) or str(row_val).strip() == "": return empty_opt
+                rv = row_val
+                
+                # Type handling for the source row value
+                if data_type == "numeric":
+                    try: rv = float(rv)
+                    except: return row_val # fail safe
+                elif data_type == "date":
+                    try: rv = pd.to_datetime(rv)
+                    except: return row_val
+                else:
+                    rv = str(rv)
+
+                for rule in mapping.mapping_rules:
+                    op = rule.get("operator", "=")
+                    val = rule.get("value", "")
+                    end_val = rule.get("value_end", "")
+                    out = rule.get("output", "")
+                    
+                    tgt = val
+                    tgt_end = end_val
+                    
+                    # Type handling for targets
+                    if data_type == "numeric":
+                        try: tgt = float(val); tgt_end = float(end_val) if end_val else 0
+                        except: pass
+                    elif data_type == "date":
+                        try: tgt = pd.to_datetime(val); tgt_end = pd.to_datetime(end_val) if end_val else None
+                        except: pass
+                    else:
+                        tgt = str(val); tgt_end = str(end_val)
+                    
+                    try:
+                        if op == "=" and rv == tgt: return out
+                        if op == "!=" and rv != tgt: return out
+                        if op == ">" and rv > tgt: return out
+                        if op == "<" and rv < tgt: return out
+                        if op == ">=" and rv >= tgt: return out
+                        if op == "<=" and rv <= tgt: return out
+                        if op == "BETWEEN":
+                            if tgt_end is not None and tgt <= rv <= tgt_end: return out
+                    except: pass
+                    
+                return getattr(mapping, "default_output", "N/A")
+                
+            supp_df[final_cat_col] = supp_df[final_cat_col].apply(apply_mapping_rules)
+            
         # Merge
         df = pd.merge(df, supp_df, on=orig_eq_col, how="left")
         

@@ -65,20 +65,27 @@ def create_or_update_mapping(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
         
-    existing = db.query(models.ColumnMapping).filter(models.ColumnMapping.dataset_id == dataset_id).first()
-    if existing:
-        existing.equipment_id_col = mapping.equipment_id_col
-        existing.category_col = mapping.category_col
-        db.commit()
-        db.refresh(existing)
-        return existing
-        
-    new_mapping = models.ColumnMapping(
-        dataset_id=dataset_id,
-        equipment_id_col=mapping.equipment_id_col,
-        category_col=mapping.category_col
-    )
-    db.add(new_mapping)
+    existing_mapping = db.query(models.ColumnMapping).filter(models.ColumnMapping.dataset_id == dataset_id).first()
+    if existing_mapping:
+        existing_mapping.equipment_id_col = mapping.equipment_id_col
+        existing_mapping.mapping_rules = mapping.mapping_rules
+        existing_mapping.derived_column_name = mapping.derived_column_name
+        existing_mapping.data_type = mapping.data_type
+        existing_mapping.default_output = mapping.default_output
+        existing_mapping.empty_output = mapping.empty_output
+        new_mapping = existing_mapping
+    else:
+        new_mapping = models.ColumnMapping(
+            dataset_id=dataset_id,
+            equipment_id_col=mapping.equipment_id_col,
+            category_col=mapping.category_col,
+            mapping_rules=mapping.mapping_rules,
+            derived_column_name=mapping.derived_column_name,
+            data_type=mapping.data_type,
+            default_output=mapping.default_output,
+            empty_output=mapping.empty_output
+        )
+        db.add(new_mapping)
     db.commit()
     db.refresh(new_mapping)
     return new_mapping
@@ -89,3 +96,20 @@ def get_mapping(project_id: int, dataset_id: int, db: Session = Depends(get_db))
     if not mapping:
         raise HTTPException(status_code=404, detail="Mapping not found")
     return mapping
+
+@router.delete("/{dataset_id}")
+def delete_dataset(project_id: int, dataset_id: int, db: Session = Depends(get_db)):
+    dataset = db.query(models.DatasetUpload).filter(models.DatasetUpload.dataset_id == dataset_id, models.DatasetUpload.project_id == project_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    if os.path.exists(dataset.file_path):
+        try:
+            os.remove(dataset.file_path)
+        except:
+            pass
+            
+    db.query(models.ColumnMapping).filter(models.ColumnMapping.dataset_id == dataset_id).delete()
+    db.delete(dataset)
+    db.commit()
+    return {"message": "Dataset deleted successfully"}

@@ -33,6 +33,11 @@ class DatasetUpload(DatasetUploadBase):
 class ColumnMappingBase(BaseModel):
     equipment_id_col: str
     category_col: Optional[str] = None
+    mapping_rules: Optional[List[Dict[str, Any]]] = None
+    derived_column_name: Optional[str] = None
+    data_type: Optional[str] = "text"
+    default_output: Optional[str] = "N/A"
+    empty_output: Optional[str] = "N/A"
 
 class ColumnMappingCreate(ColumnMappingBase):
     pass

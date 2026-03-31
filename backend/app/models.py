@@ -19,6 +19,7 @@ class DatasetUpload(Base):
     project_id = Column(Integer, ForeignKey("projects.project_id"))
     name = Column(String, index=True)
     file_path = Column(String)
+    sheet_name = Column(String, nullable=True)
     dataset_schema = Column(JSON, default=dict) # To store column types, row counts
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_original = Column(Boolean, default=False)

@@ -1,3 +1,0 @@
-"""
-MWCS Test Suite
-"""

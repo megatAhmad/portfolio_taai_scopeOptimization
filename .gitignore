@@ -61,6 +61,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+*.tsbuildinfo
 
 # Temporary files
 *.tmp
@@ -70,3 +71,7 @@ tmp/
 
 # User uploaded data (runtime)
 uploads/
+backend/data/
+frontend/node_modules/
+frontend/dist/
+frontend/package-lock.json

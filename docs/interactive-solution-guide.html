@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shutdown Prioritization Solution Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="interactive-solution-guide.css" />
+</head>
+<body>
+  <input class="theme-toggle" type="checkbox" id="theme-toggle" />
+  <div class="page">
+    <div class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-mark">SM</div>
+          <div class="brand-copy">
+            <h1>Solution Architecture Guide</h1>
+            <p>Interactive documentation for the shutdown maintenance prioritization platform.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a href="#problem">Problem</a>
+          <a href="#flow">Flow</a>
+          <a href="#algorithms">Algorithms</a>
+          <label class="theme-switch" for="theme-toggle">Toggle Light / Dark</label>
+        </div>
+      </div>
+
+      <section class="hero" id="problem">
+        <div>
+          <p class="kicker">1. Problem And Solution Overview</p>
+          <h2>From spreadsheet guesswork to an auditable shutdown scope engine.</h2>
+          <p>
+            Shutdown planners often reconcile several equipment datasets manually with VLOOKUP-heavy workflows. That creates inconsistent joins, hidden omissions,
+            untraceable business logic, and no single place to explain why one equipment item was marked as compulsory while another was excluded.
+            This platform replaces that with guided dataset intake, confidence-aware matching, derived evidence generation, a visual rules engine, and fully exportable classification output.
+          </p>
+        </div>
+        <div class="hero-grid">
+          <div class="metric">
+            <strong>3</strong>
+            <span>Decision outputs: <code>Must Have</code>, <code>Good to Have</code>, <code>Not Needed</code></span>
+          </div>
+          <div class="metric">
+            <strong>2</strong>
+            <span>Main input roles: canonical source-of-truth data and supplementary evidence datasets</span>
+          </div>
+          <div class="metric">
+            <strong>100%</strong>
+            <span>Auditable run model with rule trace, source fields, persisted artifacts, and CSV export</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <p class="kicker">Core Problem</p>
+            <h3>What the platform fixes</h3>
+          </div>
+          <p>The goal is not only to classify equipment, but to make every inclusion and exclusion explainable to planners and engineers.</p>
+        </div>
+        <div class="card-grid">
+          <article class="card">
+            <h4>Messy Equipment IDs</h4>
+            <p>The same equipment may appear as <code>P100</code>, <code>P-100</code>, or a partially normalized tag across different files.</p>
+          </article>
+          <article class="card">
+            <h4>Buried Logic</h4>
+            <p>Spreadsheet formulas hide the reasoning and are difficult to version, inspect, or reset.</p>
+          </article>
+          <article class="card">
+            <h4>No Audit Trail</h4>
+            <p>Stakeholders struggle to answer: which source matched, what rule fired, and what evidence justified the outcome?</p>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>Solution summary</strong>
+          <ul>
+            <li>Guide users through upload, inspection, and schema mapping.</li>
+            <li>Build a master dataframe that preserves canonical rows and aggregates supplementary evidence.</li>
+            <li>Allow typed derived columns to convert raw source signals into rule-friendly helper fields.</li>
+            <li>Let users create versioned AST-based rules for classification.</li>
+            <li>Persist classification runs as artifact-backed outputs for scale, explainability, and export.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="flow">
+        <div class="section-header">
+          <div>
+            <p class="kicker">2. Process Flow</p>
+            <h3>How the solution moves from raw files to final scope</h3>
+          </div>
+          <p>Each stage narrows uncertainty: first schema certainty, then matching certainty, then rule certainty.</p>
+        </div>
+        <div class="flow-rail">
+          <article class="flow-card">
+            <div class="flow-index">01</div>
+            <div>
+              <h4>Project Creation</h4>
+              <p>A project isolates all datasets, rulesets, and classification runs so teams can work on one shutdown scope at a time.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">02</div>
+            <div>
+              <h4>Dataset Inspection</h4>
+              <p>CSV files are profiled immediately. Excel files first expose workbook sheet names, then only reveal preview/schema after explicit sheet selection.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">03</div>
+            <div>
+              <h4>Schema Mapping</h4>
+              <p>Users map source columns into canonical-friendly names. Validation blocks missing targets, duplicate targets, and excluded join or equipment ID fields.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">04</div>
+            <div>
+              <h4>Derived Evidence Generation</h4>
+              <p>Typed conditions convert raw dataset values into helper labels such as due-status, outage windows, or domain-specific text flags.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">05</div>
+            <div>
+              <h4>Master Dataframe Construction</h4>
+              <p>The canonical dataset remains the left-hand anchor. Supplementary datasets are matched and aggregated so duplicate evidence is preserved rather than overwritten.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">06</div>
+            <div>
+              <h4>AST Rule Evaluation</h4>
+              <p>Rules are executed in order: <code>Must Have</code> first, then <code>Good to Have</code>, then fallback classification.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">07</div>
+            <div>
+              <h4>Persisted Run Artifacts</h4>
+              <p>Rows, explanations, and export files are stored as artifacts. The database keeps metadata and artifact references so large runs stay queryable.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <p class="kicker">Component Map</p>
+            <h3>What each part of the solution owns</h3>
+          </div>
+          <p>The platform is split into clear responsibility zones so ingestion, reasoning, and persistence can evolve independently.</p>
+        </div>
+        <div class="component-map">
+          <article class="component">
+            <header>
+              <span>Frontend</span>
+              <h4>Guided Intake UI</h4>
+              <p>Project workspace, upload form, Excel intercept modal, mapping grid, derived columns editor.</p>
+            </header>
+            <ul>
+              <li>Prevents invalid uploads before they hit the backend.</li>
+              <li>Shows schema previews and mapping suggestions.</li>
+              <li>Keeps the user inside an auditable workflow.</li>
+            </ul>
+          </article>
+          <article class="component">
+            <header>
+              <span>Backend</span>
+              <h4>Dataframe Engine</h4>
+              <p>Profiles files, applies mappings, computes derived fields, joins evidence, and runs typed conditions.</p>
+            </header>
+            <ul>
+              <li>Reads CSV and Excel datasets.</li>
+              <li>Normalizes and matches supplementary sources.</li>
+              <li>Produces the master dataframe used for classification.</li>
+            </ul>
+          </article>
+          <article class="component">
+            <header>
+              <span>Backend</span>
+              <h4>Rules And Run Persistence</h4>
+              <p>Stores versioned AST rulesets, classifies rows, and persists run artifacts for export and review.</p>
+            </header>
+            <ul>
+              <li>Returns row-level explanation traces.</li>
+              <li>Supports paginated result loading.</li>
+              <li>Uses Alembic migrations for schema control.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="algorithms">
+        <div class="section-header">
+          <div>
+            <p class="kicker">3. Algorithms And Methods</p>
+            <h3>What logic exists inside each component</h3>
+          </div>
+          <p>This section documents the exact kinds of methods the platform exposes today.</p>
+        </div>
+
+        <input class="tab-input" type="radio" name="algorithm-tabs" id="tab-matching" checked />
+        <input class="tab-input" type="radio" name="algorithm-tabs" id="tab-derived" />
+        <input class="tab-input" type="radio" name="algorithm-tabs" id="tab-classification" />
+
+        <div class="tabs">
+          <div class="tab-list">
+            <label for="tab-matching">Matching Methods</label>
+            <label for="tab-derived">Derived Rule Methods</label>
+            <label for="tab-classification">Classification Rules</label>
+          </div>
+
+          <div class="tab-panel" id="panel-matching">
+            <div class="algorithm-grid">
+              <article class="algorithm-card">
+                <h4>Exact Matching</h4>
+                <p>Compares the canonical join value against the supplementary equipment identifier without normalization. Best for clean, standardized IDs.</p>
+                <div class="badge-row">
+                  <span class="badge">Method: exact</span>
+                  <span class="badge">Confidence: 1.0</span>
+                  <span class="badge">Use when IDs are governed</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Normalized Matching</h4>
+                <p>Lowercases text, strips whitespace, and removes non-alphanumeric characters so values like <code>P-100</code> and <code>p100</code> resolve together.</p>
+                <div class="badge-row">
+                  <span class="badge">Method: normalized_exact</span>
+                  <span class="badge">Confidence: 1.0</span>
+                  <span class="badge">Tolerates punctuation drift</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Fuzzy Matching</h4>
+                <p>Uses a similarity score to compare normalized values and accepts the best candidate only when it meets the configured threshold.</p>
+                <div class="badge-row">
+                  <span class="badge">Method: fuzzy</span>
+                  <span class="badge">Threshold: configurable</span>
+                  <span class="badge">Good for messy source IDs</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Duplicate Evidence Aggregation</h4>
+                <p>If multiple supplementary rows match one canonical row, the platform keeps all of them as aggregated evidence instead of overwriting earlier rows.</p>
+                <ul>
+                  <li><code>*__matched_source_ids</code></li>
+                  <li><code>*__match_count</code></li>
+                  <li><code>*__match_confidences</code></li>
+                  <li><code>*__evidence_rows</code></li>
+                </ul>
+              </article>
+            </div>
+            <details>
+              <summary>How matching confidence is exposed</summary>
+              <div>
+                <p>The master dataframe retains summary fields such as match method, per-run confidence, and full evidence rows so reviewers can see whether a classification relied on clean joins or softer fuzzy matches.</p>
+              </div>
+            </details>
+          </div>
+
+          <div class="tab-panel" id="panel-derived">
+            <div class="algorithm-grid">
+              <article class="algorithm-card">
+                <h4>Text-Derived Conditions</h4>
+                <p>Used when the source field is textual or tag-based.</p>
+                <div class="badge-row">
+                  <span class="badge">=</span>
+                  <span class="badge">!=</span>
+                  <span class="badge">CONTAINS</span>
+                  <span class="badge">CONTAINS ANY</span>
+                  <span class="badge">CONTAINS ALL</span>
+                  <span class="badge">IN</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Numeric-Derived Conditions</h4>
+                <p>Used for thresholds such as maintenance age, count, duration, pressure, or cost bands.</p>
+                <div class="badge-row">
+                  <span class="badge">&lt;</span>
+                  <span class="badge">&gt;</span>
+                  <span class="badge">&lt;=</span>
+                  <span class="badge">&gt;=</span>
+                  <span class="badge">BETWEEN</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Date-Derived Conditions</h4>
+                <p>Supports planning logic such as due windows, outage eligibility windows, or date-based triggers.</p>
+                <div class="badge-row">
+                  <span class="badge">&lt;</span>
+                  <span class="badge">&gt;</span>
+                  <span class="badge">&lt;=</span>
+                  <span class="badge">&gt;=</span>
+                  <span class="badge">BETWEEN</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Fallback Outputs</h4>
+                <p>Each derived field can emit typed outputs for successful matches, failed matches, or null/empty source cells.</p>
+                <ul>
+                  <li><code>true_value</code></li>
+                  <li><code>false_value</code></li>
+                  <li><code>null_value</code></li>
+                </ul>
+              </article>
+            </div>
+            <details>
+              <summary>How derived rules behave on aggregated list values</summary>
+              <div>
+                <p>When a matched supplementary field contains multiple values, the engine evaluates the condition across the list. For text searches, combined content can be searched; for scalar comparisons, the rule passes if any value satisfies the condition.</p>
+              </div>
+            </details>
+          </div>
+
+          <div class="tab-panel" id="panel-classification">
+            <div class="algorithm-grid">
+              <article class="algorithm-card">
+                <h4>Rule Model</h4>
+                <p>Classification rules are stored as AST trees made from nested groups and typed condition nodes.</p>
+                <ul>
+                  <li>Group nodes use <code>AND</code> or <code>OR</code>.</li>
+                  <li>Condition nodes target one field, one operator, and one expected value set.</li>
+                  <li>Node ids stay stable for explanation traces.</li>
+                </ul>
+              </article>
+              <article class="algorithm-card">
+                <h4>Execution Order</h4>
+                <p>The engine evaluates the rules in a fixed priority order so classifications stay deterministic.</p>
+                <div class="badge-row">
+                  <span class="badge">1. Must Have</span>
+                  <span class="badge">2. Good to Have</span>
+                  <span class="badge">3. Fallback Label</span>
+                </div>
+              </article>
+              <article class="algorithm-card">
+                <h4>Trace Output</h4>
+                <p>Every row can return the evidence path behind the decision.</p>
+                <ul>
+                  <li><code>matched_rule</code></li>
+                  <li><code>rule_path</code></li>
+                  <li><code>source_fields</code></li>
+                  <li><code>condition_trace</code></li>
+                </ul>
+              </article>
+              <article class="algorithm-card">
+                <h4>Persisted Result Model</h4>
+                <p>Large run outputs are stored as artifacts rather than one oversized JSON database row.</p>
+                <ul>
+                  <li>Rows artifact: JSONL</li>
+                  <li>Explanation artifact: JSONL</li>
+                  <li>Export artifact: CSV</li>
+                  <li>Metadata stays in the database</li>
+                </ul>
+              </article>
+            </div>
+            <details>
+              <summary>Why AST-based classification matters</summary>
+              <div>
+                <p>AST rules make the engine versionable, inspectable, and explainable. Instead of opaque spreadsheet formulas, each logical group and condition becomes a stored structure that the UI can render, save, compare, and trace back during classification review.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <p class="kicker">Decision Story</p>
+            <h3>What a reviewer can now explain</h3>
+          </div>
+          <p>The solution is designed so an engineer or planner can defend a row without leaving the product.</p>
+        </div>
+        <div class="card-grid">
+          <article class="card">
+            <h4>Why it matched</h4>
+            <p>The reviewer can inspect the matching method and evidence rows tied to that canonical equipment item.</p>
+          </article>
+          <article class="card">
+            <h4>Why it classified</h4>
+            <p>The reviewer can inspect the AST path, condition outcomes, and source fields involved in the final decision.</p>
+          </article>
+          <article class="card">
+            <h4>Why it scales</h4>
+            <p>The reviewer still gets exportable and pageable output even when classification results grow beyond what one JSON row should hold.</p>
+          </article>
+        </div>
+        <p class="footer-note">Open this file locally in a browser to use the theme toggle, tabbed sections, and expandable explanation cards.</p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

@@ -137,7 +137,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.65fr)] 2xl:grid-cols-[minmax(0,1.9fr)_minmax(340px,0.55fr)]">
         <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200">
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-slate-600">
@@ -163,7 +163,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
           </table>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 xl:sticky xl:top-6 xl:max-h-[70vh] xl:overflow-y-auto">
           {explanation ? (
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-ocean"><GaugeCircle size={16} /> Evidence Trace</div>

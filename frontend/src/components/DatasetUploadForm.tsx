@@ -73,6 +73,7 @@ export function DatasetUploadForm({
   const [auditPage, setAuditPage] = useState(0)
   const [derivedAuditPageSize, setDerivedAuditPageSize] = useState(10)
   const [derivedAuditPage, setDerivedAuditPage] = useState(0)
+  const [derivedAuditRequested, setDerivedAuditRequested] = useState(false)
 
   useEffect(() => {
     if (canonicalDataset) {
@@ -94,7 +95,7 @@ export function DatasetUploadForm({
       return
     }
     void refreshTransformedPreview(file, selectedSheet || undefined)
-  }, [equipmentIdColumn, equipmentIdCleaningConfig, derivedColumns, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
+  }, [equipmentIdColumn, equipmentIdCleaningConfig, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
 
   useEffect(() => {
     setAuditPage(0)
@@ -103,6 +104,10 @@ export function DatasetUploadForm({
   useEffect(() => {
     setDerivedAuditPage(0)
   }, [inspection?.file_name, inspection?.derived_column_audit.length, derivedAuditPageSize])
+
+  useEffect(() => {
+    setDerivedAuditRequested(false)
+  }, [derivedColumns])
 
   async function inspectFile(nextFile: File, nextRole: 'canonical' | 'supplementary', sheetName?: string) {
     const formData = new FormData()
@@ -145,7 +150,9 @@ export function DatasetUploadForm({
     formData.append('role', role)
     formData.append('equipment_id_column', equipmentIdColumn)
     formData.append('equipment_id_cleaning_config', JSON.stringify(equipmentIdCleaningConfig))
-    formData.append('derived_columns', JSON.stringify(derivedColumns))
+    if (derivedAuditRequested) {
+      formData.append('derived_columns', JSON.stringify(derivedColumns))
+    }
     if (nextSheetName) {
       formData.append('sheet_name', nextSheetName)
     }
@@ -330,6 +337,12 @@ export function DatasetUploadForm({
     safeDerivedAuditPage * derivedAuditPageSize,
     safeDerivedAuditPage * derivedAuditPageSize + derivedAuditPageSize,
   )
+
+  async function handleRunDerivedAudit() {
+    if (!file || !inspection || !equipmentIdColumn) return
+    setDerivedAuditRequested(true)
+    await refreshTransformedPreview(file, selectedSheet || undefined)
+  }
 
   return (
     <>
@@ -706,7 +719,17 @@ export function DatasetUploadForm({
                   <p className="text-sm text-slate-600">Create typed fallback labels before the classification rules run.</p>
                 </div>
               </div>
-              <button type="button" onClick={addDerivedColumn} className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-ocean">Add derived column</button>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button type="button" onClick={addDerivedColumn} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ocean">Add derived column</button>
+                <button
+                  type="button"
+                  onClick={() => void handleRunDerivedAudit()}
+                  disabled={!derivedColumns.length || refreshingPreview}
+                  className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {refreshingPreview && derivedAuditRequested ? 'Running derived audit...' : 'Run derived audit'}
+                </button>
+              </div>
               <div className="mt-4 space-y-4">
                 {derivedColumns.length === 0 && <p className="text-sm text-slate-500">No derived columns configured yet.</p>}
                 {derivedColumns.map((derived, derivedIndex) => (
@@ -830,6 +853,7 @@ export function DatasetUploadForm({
                     <thead className="bg-slate-100 text-left text-slate-600">
                       <tr>
                         <th className="px-3 py-2 font-semibold">Source row</th>
+                        <th className="px-3 py-2 font-semibold">Raw data</th>
                         <th className="px-3 py-2 font-semibold">Derived column</th>
                         <th className="px-3 py-2 font-semibold">Output</th>
                         <th className="px-3 py-2 font-semibold">Branch</th>
@@ -840,6 +864,15 @@ export function DatasetUploadForm({
                       {pagedDerivedAuditRows.map((row, index) => (
                         <tr key={`${row.source_row_index}-${row.derived_column}-${index}`} className="border-t border-slate-100 align-top">
                           <td className="px-3 py-2">{row.source_row_index}</td>
+                          <td className="px-3 py-2">
+                            <div className="space-y-1">
+                              {row.conditions.map((condition, conditionIndex) => (
+                                <div key={`${row.source_row_index}-${row.derived_column}-raw-${conditionIndex}`} className="text-slate-600">
+                                  <span className="font-semibold text-slate-700">{condition.column}:</span> {formatAuditValue(condition.actual_value)}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
                           <td className="px-3 py-2 font-medium text-slate-700">{row.derived_column}</td>
                           <td className="px-3 py-2">{formatAuditValue(row.output_value)}</td>
                           <td className="px-3 py-2">{row.branch_taken}</td>

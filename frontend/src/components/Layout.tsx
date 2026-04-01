@@ -5,7 +5,7 @@ export function Layout() {
   const location = useLocation()
   return (
     <div className="min-h-screen bg-grid bg-[size:32px_32px]">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
         <header className="mb-8 rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

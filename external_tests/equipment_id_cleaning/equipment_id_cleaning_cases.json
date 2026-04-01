@@ -113,7 +113,7 @@
       "enabled": true
     },
     "expected": {
-      "intermediate": "101 A / 101B",
+      "intermediate": "101A/101B",
       "final_ids": ["101A", "101B"],
       "change_types_contains": ["expanded_from_compound", "whitespace_removed"],
       "parse_status": "expanded"

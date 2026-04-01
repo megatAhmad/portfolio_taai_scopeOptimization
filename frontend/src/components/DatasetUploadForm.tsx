@@ -61,6 +61,8 @@ export function DatasetUploadForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [sheetModalOpen, setSheetModalOpen] = useState(false)
+  const [auditPageSize, setAuditPageSize] = useState(10)
+  const [auditPage, setAuditPage] = useState(0)
 
   useEffect(() => {
     if (canonicalDataset) {
@@ -83,6 +85,10 @@ export function DatasetUploadForm({
     }
     void refreshTransformedPreview(file, selectedSheet || undefined)
   }, [equipmentIdColumn, equipmentIdCleaningConfig, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
+
+  useEffect(() => {
+    setAuditPage(0)
+  }, [inspection?.file_name, inspection?.changed_row_count, auditPageSize, equipmentIdColumn])
 
   async function inspectFile(nextFile: File, nextRole: 'canonical' | 'supplementary', sheetName?: string) {
     const formData = new FormData()
@@ -286,6 +292,21 @@ export function DatasetUploadForm({
       notes: String(row.equipment_id_audit_notes ?? '').split('|').map((item) => item.trim()).filter(Boolean),
       expansion_index: String(row.equipment_id_expansion_index ?? '0'),
     }))
+  const auditRows = expandedAuditRows.length > 0
+    ? expandedAuditRows
+    : changedAuditRows.map((row) => ({
+        key: `${row.source_row_index}-${row.equipment_id_raw}`,
+        source_row_index: String(row.source_row_index),
+        expansion_index: '0',
+        raw_id: row.equipment_id_raw,
+        final_id: row.equipment_id_final.join(', '),
+        change_types: row.change_types,
+        parse_status: row.parse_status,
+        notes: row.notes,
+      }))
+  const auditPageCount = Math.max(1, Math.ceil(auditRows.length / auditPageSize))
+  const safeAuditPage = Math.min(auditPage, auditPageCount - 1)
+  const pagedAuditRows = auditRows.slice(safeAuditPage * auditPageSize, safeAuditPage * auditPageSize + auditPageSize)
 
   return (
     <>
@@ -586,6 +607,43 @@ export function DatasetUploadForm({
                     <p className="text-sm text-slate-600">Focused self-audit of equipment IDs that were edited, expanded, or flagged as ambiguous.</p>
                   </div>
                 </div>
+                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-slate-600">
+                    Showing {auditRows.length === 0 ? 0 : safeAuditPage * auditPageSize + 1} to {Math.min((safeAuditPage + 1) * auditPageSize, auditRows.length)} of {auditRows.length} audit rows
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-sm font-medium text-slate-700">
+                      Rows per page
+                      <select
+                        value={auditPageSize}
+                        onChange={(event) => setAuditPageSize(Number(event.target.value))}
+                        className="ml-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value={10}>10</option>
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAuditPage((current) => Math.max(current - 1, 0))}
+                        disabled={safeAuditPage === 0}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuditPage((current) => Math.min(current + 1, auditPageCount - 1))}
+                        disabled={safeAuditPage >= auditPageCount - 1}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-100 text-left text-slate-600">
@@ -600,16 +658,7 @@ export function DatasetUploadForm({
                       </tr>
                     </thead>
                     <tbody>
-                      {(expandedAuditRows.length > 0 ? expandedAuditRows : changedAuditRows.map((row) => ({
-                        key: `${row.source_row_index}-${row.equipment_id_raw}`,
-                        source_row_index: String(row.source_row_index),
-                        expansion_index: '0',
-                        raw_id: row.equipment_id_raw,
-                        final_id: row.equipment_id_final.join(', '),
-                        change_types: row.change_types,
-                        parse_status: row.parse_status,
-                        notes: row.notes,
-                      }))).map((row) => (
+                      {pagedAuditRows.map((row) => (
                         <tr key={row.key} className="border-t border-slate-100">
                           <td className="px-3 py-2">{row.source_row_index}</td>
                           <td className="px-3 py-2">{row.expansion_index}</td>

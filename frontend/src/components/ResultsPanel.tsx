@@ -36,10 +36,15 @@ function renderTrace(node: TraceNode): JSX.Element {
 
 export function ResultsPanel({ result, loading, onPageChange }: { result: ClassificationResult | null; loading?: boolean; onPageChange?: (offset: number) => Promise<void> | void }) {
   const [selectedExplanationIndex, setSelectedExplanationIndex] = useState(0)
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([])
 
   useEffect(() => {
     setSelectedExplanationIndex(0)
   }, [result?.run_id, result?.offset])
+
+  useEffect(() => {
+    setVisibleColumns(result?.columns ?? [])
+  }, [result?.run_id, result?.columns])
 
   const explanation = result?.explanations[selectedExplanationIndex] ?? null
   const confidenceColumns = useMemo(() => result?.columns.filter((column) => column.endsWith('__match_confidence')) ?? [], [result])
@@ -47,6 +52,10 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
   const evidenceKeys = useMemo(() => Object.keys(selectedRow ?? {}).filter((key) => key.endsWith('__evidence_rows')), [selectedRow])
   const pageStart = result ? result.offset + 1 : 0
   const pageEnd = result ? Math.min(result.offset + result.rows.length, result.total_rows) : 0
+  const displayedColumns = useMemo(
+    () => result?.columns.filter((column) => visibleColumns.includes(column)) ?? [],
+    [result?.columns, visibleColumns],
+  )
 
   if (!result) {
     return (
@@ -82,13 +91,59 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
         </div>
       </div>
 
+      <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-ink">Visible columns</p>
+            <p className="text-sm text-slate-600">Tick the columns you want to keep in the classification table.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setVisibleColumns(result.columns)}
+              className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+            >
+              Show all
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisibleColumns([])}
+              className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+            >
+              Hide all
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {result.columns.map((column) => {
+            const checked = visibleColumns.includes(column)
+            return (
+              <label key={column} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${checked ? 'border-ocean bg-mist text-ink' : 'border-slate-200 bg-white text-slate-600'}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    setVisibleColumns((current) => (
+                      event.target.checked
+                        ? [...current, column]
+                        : current.filter((item) => item !== column)
+                    ))
+                  }}
+                />
+                {column}
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200">
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-semibold">Explain</th>
-                {result.columns.map((column) => <th key={column} className="px-4 py-3 font-semibold">{column}</th>)}
+                {displayedColumns.map((column) => <th key={column} className="px-4 py-3 font-semibold">{column}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -99,7 +154,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
                       <Eye size={14} /> Trace
                     </button>
                   </td>
-                  {result.columns.map((column) => (
+                  {displayedColumns.map((column) => (
                     <td key={column} className="max-w-[20rem] px-4 py-3 text-slate-700">{formatValue(row[column])}</td>
                   ))}
                 </tr>

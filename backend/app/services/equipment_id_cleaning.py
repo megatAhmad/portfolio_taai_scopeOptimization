@@ -114,6 +114,12 @@ def transform_equipment_id(value: Any, config: EquipmentIdCleaningConfig) -> tup
     change_types: list[str] = []
     notes: list[str] = []
     intermediate = raw
+    whitespace_changed = False
+
+    if config.remove_whitespace:
+        compacted = re.sub(r'\s+', '', intermediate)
+        whitespace_changed = whitespace_changed or compacted != intermediate
+        intermediate = compacted
 
     if config.remove_bracketed_content:
         intermediate, changed = remove_bracketed_content(intermediate, config.bridge_bracket_gap_with_dash)
@@ -134,7 +140,6 @@ def transform_equipment_id(value: Any, config: EquipmentIdCleaningConfig) -> tup
         notes.extend(expand_notes)
 
     final_ids: list[str] = []
-    whitespace_changed = False
     case_changed = False
     for item in expanded:
         next_item = cleanup_separators(item)

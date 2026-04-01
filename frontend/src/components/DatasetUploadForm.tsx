@@ -274,6 +274,18 @@ export function DatasetUploadForm({
   const readyForPreview = Boolean(inspection && inspection.columns.length > 0)
   const workbookOnly = Boolean(inspection && inspection.file_type === 'excel' && inspection.columns.length === 0)
   const changedAuditRows = inspection?.equipment_id_audit.filter((row) => row.parse_status !== 'unchanged') ?? []
+  const expandedAuditRows = (inspection?.transformed_preview_rows ?? [])
+    .filter((row) => String(row.equipment_id_parse_status ?? 'unchanged') !== 'unchanged')
+    .map((row, index) => ({
+      key: `${String(row.equipment_id_source_row_index ?? index)}-${String(row.equipment_id_expansion_index ?? index)}-${String(row[equipmentIdColumn] ?? '')}`,
+      source_row_index: String(row.equipment_id_source_row_index ?? index),
+      raw_id: String(row.equipment_id_raw ?? ''),
+      final_id: String(row[equipmentIdColumn] ?? ''),
+      change_types: String(row.equipment_id_change_types ?? '').split(',').map((item) => item.trim()).filter(Boolean),
+      parse_status: String(row.equipment_id_parse_status ?? 'unchanged'),
+      notes: String(row.equipment_id_audit_notes ?? '').split('|').map((item) => item.trim()).filter(Boolean),
+      expansion_index: String(row.equipment_id_expansion_index ?? '0'),
+    }))
 
   return (
     <>
@@ -565,7 +577,7 @@ export function DatasetUploadForm({
               </div>
             </section>
 
-            {changedAuditRows.length > 0 && (
+            {(expandedAuditRows.length > 0 || changedAuditRows.length > 0) && (
               <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-3">
                   <WandSparkles size={18} className="text-ember" />
@@ -579,20 +591,31 @@ export function DatasetUploadForm({
                     <thead className="bg-slate-100 text-left text-slate-600">
                       <tr>
                         <th className="px-3 py-2 font-semibold">Source row</th>
+                        <th className="px-3 py-2 font-semibold">Expanded row</th>
                         <th className="px-3 py-2 font-semibold">Raw ID</th>
-                        <th className="px-3 py-2 font-semibold">Final IDs</th>
+                        <th className="px-3 py-2 font-semibold">Final ID</th>
                         <th className="px-3 py-2 font-semibold">Change types</th>
                         <th className="px-3 py-2 font-semibold">Status</th>
                         <th className="px-3 py-2 font-semibold">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {changedAuditRows.map((row) => (
-                        <tr key={`${row.source_row_index}-${row.equipment_id_raw}`} className="border-t border-slate-100">
+                      {(expandedAuditRows.length > 0 ? expandedAuditRows : changedAuditRows.map((row) => ({
+                        key: `${row.source_row_index}-${row.equipment_id_raw}`,
+                        source_row_index: String(row.source_row_index),
+                        expansion_index: '0',
+                        raw_id: row.equipment_id_raw,
+                        final_id: row.equipment_id_final.join(', '),
+                        change_types: row.change_types,
+                        parse_status: row.parse_status,
+                        notes: row.notes,
+                      }))).map((row) => (
+                        <tr key={row.key} className="border-t border-slate-100">
                           <td className="px-3 py-2">{row.source_row_index}</td>
-                          <td className="px-3 py-2 font-medium text-slate-700">{row.equipment_id_raw}</td>
-                          <td className="px-3 py-2">{row.equipment_id_final.join(', ')}</td>
-                          <td className="px-3 py-2">{row.change_types.join(', ')}</td>
+                          <td className="px-3 py-2">{row.expansion_index}</td>
+                          <td className="px-3 py-2 font-medium text-slate-700">{row.raw_id}</td>
+                          <td className="px-3 py-2">{row.final_id}</td>
+                          <td className="px-3 py-2">{row.change_types.join(', ') || '—'}</td>
                           <td className="px-3 py-2">{row.parse_status}</td>
                           <td className="px-3 py-2">{row.notes.join(' | ') || '—'}</td>
                         </tr>

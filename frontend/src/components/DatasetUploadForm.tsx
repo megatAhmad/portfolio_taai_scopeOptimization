@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, FileSpreadsheet, LoaderCircle, TableProperties, WandSparkles, X } from 'lucide-react'
 import { api } from '../lib/api'
-import type { Dataset, DatasetInspection, DerivedColumn, MappingEntry, MatchingConfig } from '../types'
+import type { Dataset, DatasetInspection, DerivedColumn, EquipmentIdCleaningConfig, MappingEntry, MatchingConfig } from '../types'
 
 const textOperators = ['=', '!=', 'CONTAINS', 'CONTAINS ANY', 'CONTAINS ALL', 'IN']
 const rangeOperators = ['<', '>', '<=', '>=', 'BETWEEN']
 
 function defaultMatchingConfig(): MatchingConfig {
   return { strategy: 'normalized', fuzzy_threshold: 0.82 }
+}
+
+function defaultEquipmentIdCleaningConfig(): EquipmentIdCleaningConfig {
+  return {
+    enabled: false,
+    remove_bracketed_content: true,
+    bridge_bracket_gap_with_dash: true,
+    expand_compound_ids: true,
+    remove_whitespace: true,
+    uppercase: false,
+  }
 }
 
 function cloneSuggestions(suggestions: MappingEntry[]) {
@@ -44,7 +55,9 @@ export function DatasetUploadForm({
   const [mappingEntries, setMappingEntries] = useState<MappingEntry[]>([])
   const [derivedColumns, setDerivedColumns] = useState<DerivedColumn[]>([])
   const [matchingConfig, setMatchingConfig] = useState<MatchingConfig>(defaultMatchingConfig())
+  const [equipmentIdCleaningConfig, setEquipmentIdCleaningConfig] = useState<EquipmentIdCleaningConfig>(defaultEquipmentIdCleaningConfig())
   const [inspecting, setInspecting] = useState(false)
+  const [refreshingPreview, setRefreshingPreview] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [sheetModalOpen, setSheetModalOpen] = useState(false)
@@ -63,6 +76,13 @@ export function DatasetUploadForm({
       }
     }
   }, [inspection, role, canonicalTargets, canonicalDataset])
+
+  useEffect(() => {
+    if (!file || !inspection || !equipmentIdColumn || inspecting || sheetModalOpen) {
+      return
+    }
+    void refreshTransformedPreview(file, selectedSheet || undefined)
+  }, [equipmentIdColumn, equipmentIdCleaningConfig, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
 
   async function inspectFile(nextFile: File, nextRole: 'canonical' | 'supplementary', sheetName?: string) {
     const formData = new FormData()
@@ -96,6 +116,31 @@ export function DatasetUploadForm({
     }
   }
 
+  async function refreshTransformedPreview(nextFile: File, nextSheetName?: string) {
+    if (!equipmentIdColumn || !inspection) return
+
+    const formData = new FormData()
+    formData.append('file', nextFile)
+    formData.append('project_id', String(projectId))
+    formData.append('role', role)
+    formData.append('equipment_id_column', equipmentIdColumn)
+    formData.append('equipment_id_cleaning_config', JSON.stringify(equipmentIdCleaningConfig))
+    if (nextSheetName) {
+      formData.append('sheet_name', nextSheetName)
+    }
+
+    setRefreshingPreview(true)
+    try {
+      const result = await api.inspectDataset(formData)
+      setInspection((current) => (current ? { ...current, ...result, mapping_suggestions: current.mapping_suggestions } : result))
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh equipment ID preview')
+    } finally {
+      setRefreshingPreview(false)
+    }
+  }
+
   function resetStateAfterUpload() {
     setFile(null)
     setInspection(null)
@@ -106,6 +151,7 @@ export function DatasetUploadForm({
     setMappingEntries([])
     setDerivedColumns([])
     setMatchingConfig(defaultMatchingConfig())
+    setEquipmentIdCleaningConfig(defaultEquipmentIdCleaningConfig())
     setSheetModalOpen(false)
     setFileKey((current) => current + 1)
   }
@@ -117,6 +163,7 @@ export function DatasetUploadForm({
     setMappingEntries([])
     setEquipmentIdColumn('')
     setSheetModalOpen(false)
+    setEquipmentIdCleaningConfig(defaultEquipmentIdCleaningConfig())
     setFileKey((current) => current + 1)
     setError(message)
   }
@@ -190,7 +237,7 @@ export function DatasetUploadForm({
     return Array.from(new Set(errors))
   }, [equipmentIdColumn, inspection, joinColumn, mappingEntries, role, selectedSheet])
 
-  const canSubmit = Boolean(file && inspection && inspection.columns.length && validationErrors.length === 0 && !submitting)
+  const canSubmit = Boolean(file && inspection && inspection.columns.length && validationErrors.length === 0 && !submitting && !refreshingPreview)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -204,6 +251,7 @@ export function DatasetUploadForm({
     formData.append('mapping_rules', JSON.stringify(mappingEntries))
     formData.append('derived_columns', JSON.stringify(derivedColumns))
     formData.append('matching_config', JSON.stringify(matchingConfig))
+    formData.append('equipment_id_cleaning_config', JSON.stringify(equipmentIdCleaningConfig))
     if (inspection.file_type === 'excel') {
       formData.append('sheet_name', selectedSheet)
     }
@@ -225,6 +273,7 @@ export function DatasetUploadForm({
 
   const readyForPreview = Boolean(inspection && inspection.columns.length > 0)
   const workbookOnly = Boolean(inspection && inspection.file_type === 'excel' && inspection.columns.length === 0)
+  const changedAuditRows = inspection?.equipment_id_audit.filter((row) => row.parse_status !== 'unchanged') ?? []
 
   return (
     <>
@@ -276,6 +325,7 @@ export function DatasetUploadForm({
                 setMappingEntries([])
                 setEquipmentIdColumn('')
                 setJoinColumn('')
+                setEquipmentIdCleaningConfig(defaultEquipmentIdCleaningConfig())
                 if (nextFile) {
                   await inspectFile(nextFile, role)
                 }
@@ -400,6 +450,158 @@ export function DatasetUploadForm({
                 </table>
               </div>
             </section>
+
+            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-3">
+                <FileSpreadsheet size={18} className="text-ink" />
+                <div>
+                  <h3 className="font-display text-lg text-ink">Equipment ID Cleaning</h3>
+                  <p className="text-sm text-slate-600">Configure preprocessing before matching. Whitespace removal is applied at the end of the pipeline.</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.enabled}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, enabled: event.target.checked }))}
+                  />
+                  Enable equipment ID cleaning
+                </label>
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                  Preview refreshes automatically when the source equipment ID column or cleaning rules change.
+                </div>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.remove_bracketed_content}
+                    disabled={!equipmentIdCleaningConfig.enabled}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, remove_bracketed_content: event.target.checked }))}
+                  />
+                  Remove bracketed content
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.bridge_bracket_gap_with_dash}
+                    disabled={!equipmentIdCleaningConfig.enabled || !equipmentIdCleaningConfig.remove_bracketed_content}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, bridge_bracket_gap_with_dash: event.target.checked }))}
+                  />
+                  Bridge removed bracket gaps with `-`
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.expand_compound_ids}
+                    disabled={!equipmentIdCleaningConfig.enabled}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, expand_compound_ids: event.target.checked }))}
+                  />
+                  Expand IDs containing `&` or `/`
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.remove_whitespace}
+                    disabled={!equipmentIdCleaningConfig.enabled}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, remove_whitespace: event.target.checked }))}
+                  />
+                  Remove whitespace at end
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={equipmentIdCleaningConfig.uppercase}
+                    disabled={!equipmentIdCleaningConfig.enabled}
+                    onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, uppercase: event.target.checked }))}
+                  />
+                  Uppercase normalized IDs
+                </label>
+                {refreshingPreview && (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-sm text-ocean">
+                    <LoaderCircle size={16} className="animate-spin" />
+                    Refreshing transformed preview...
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-3">
+                <TableProperties size={18} className="text-pine" />
+                <div>
+                  <h3 className="font-display text-lg text-ink">Uploaded Data Review</h3>
+                  <p className="text-sm text-slate-600">Review the transformed equipment IDs and duplicated rows before final upload.</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full bg-white px-3 py-2">{inspection.transformed_row_count || inspection.preview_rows.length} preview rows</span>
+                <span className="rounded-full bg-white px-3 py-2">{inspection.changed_row_count} changed source IDs</span>
+              </div>
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-100 text-left text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Source row</th>
+                      <th className="px-3 py-2 font-semibold">Raw ID</th>
+                      <th className="px-3 py-2 font-semibold">Final ID</th>
+                      <th className="px-3 py-2 font-semibold">Status</th>
+                      <th className="px-3 py-2 font-semibold">Changes</th>
+                      <th className="px-3 py-2 font-semibold">Expanded rows</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(inspection.transformed_preview_rows.length ? inspection.transformed_preview_rows : inspection.preview_rows).map((row, rowIndex) => (
+                      <tr key={rowIndex} className="border-t border-slate-100">
+                        <td className="px-3 py-2">{String(row.equipment_id_source_row_index ?? rowIndex)}</td>
+                        <td className="px-3 py-2 font-medium text-slate-700">{String(row.equipment_id_raw ?? row[equipmentIdColumn] ?? '')}</td>
+                        <td className="px-3 py-2">{String(row[equipmentIdColumn] ?? '')}</td>
+                        <td className="px-3 py-2">{String(row.equipment_id_parse_status ?? 'unchanged')}</td>
+                        <td className="px-3 py-2">{String(row.equipment_id_change_types ?? '—') || '—'}</td>
+                        <td className="px-3 py-2">{String(row.equipment_id_expansion_count ?? 1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {changedAuditRows.length > 0 && (
+              <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center gap-3">
+                  <WandSparkles size={18} className="text-ember" />
+                  <div>
+                    <h3 className="font-display text-lg text-ink">ID Audit</h3>
+                    <p className="text-sm text-slate-600">Focused self-audit of equipment IDs that were edited, expanded, or flagged as ambiguous.</p>
+                  </div>
+                </div>
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-100 text-left text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Source row</th>
+                        <th className="px-3 py-2 font-semibold">Raw ID</th>
+                        <th className="px-3 py-2 font-semibold">Final IDs</th>
+                        <th className="px-3 py-2 font-semibold">Change types</th>
+                        <th className="px-3 py-2 font-semibold">Status</th>
+                        <th className="px-3 py-2 font-semibold">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {changedAuditRows.map((row) => (
+                        <tr key={`${row.source_row_index}-${row.equipment_id_raw}`} className="border-t border-slate-100">
+                          <td className="px-3 py-2">{row.source_row_index}</td>
+                          <td className="px-3 py-2 font-medium text-slate-700">{row.equipment_id_raw}</td>
+                          <td className="px-3 py-2">{row.equipment_id_final.join(', ')}</td>
+                          <td className="px-3 py-2">{row.change_types.join(', ')}</td>
+                          <td className="px-3 py-2">{row.parse_status}</td>
+                          <td className="px-3 py-2">{row.notes.join(' | ') || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
             <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center gap-3">

@@ -45,6 +45,25 @@ class MatchingConfig(BaseModel):
     fuzzy_threshold: float = 0.82
 
 
+class EquipmentIdCleaningConfig(BaseModel):
+    enabled: bool = False
+    remove_bracketed_content: bool = True
+    bridge_bracket_gap_with_dash: bool = True
+    expand_compound_ids: bool = True
+    remove_whitespace: bool = True
+    uppercase: bool = False
+
+
+class EquipmentIdAuditRecord(BaseModel):
+    source_row_index: int
+    equipment_id_raw: str
+    equipment_id_intermediate: str | None = None
+    equipment_id_final: list[str] = Field(default_factory=list)
+    change_types: list[str] = Field(default_factory=list)
+    parse_status: Literal['unchanged', 'cleaned', 'expanded', 'ambiguous'] = 'unchanged'
+    notes: list[str] = Field(default_factory=list)
+
+
 class DerivedCondition(BaseModel):
     column: str
     data_type: Literal['text', 'numeric', 'date']
@@ -70,6 +89,11 @@ class DatasetInspectionResponse(BaseModel):
     preview_rows: list[dict[str, Any]] = Field(default_factory=list)
     schema_profile: list[ColumnProfile] = Field(default_factory=list)
     mapping_suggestions: list[MappingEntry] = Field(default_factory=list)
+    transformed_columns: list[str] = Field(default_factory=list)
+    transformed_preview_rows: list[dict[str, Any]] = Field(default_factory=list)
+    equipment_id_audit: list[EquipmentIdAuditRecord] = Field(default_factory=list)
+    transformed_row_count: int = 0
+    changed_row_count: int = 0
 
 
 class DatasetRead(BaseModel):
@@ -87,6 +111,7 @@ class DatasetRead(BaseModel):
     preview_rows: list[dict[str, Any]]
     schema_profile: list[ColumnProfile]
     matching_config: MatchingConfig
+    equipment_id_cleaning_config: EquipmentIdCleaningConfig
     created_at: datetime
 
     model_config = {'from_attributes': True}

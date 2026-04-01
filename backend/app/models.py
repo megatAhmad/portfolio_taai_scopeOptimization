@@ -39,6 +39,7 @@ class Dataset(Base):
     preview_rows: Mapped[list] = mapped_column(JSON, default=list)
     schema_profile: Mapped[list] = mapped_column(JSON, default=list)
     matching_config: Mapped[dict] = mapped_column(JSON, default=dict)
+    equipment_id_cleaning_config: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     project: Mapped['Project'] = relationship(back_populates='datasets')

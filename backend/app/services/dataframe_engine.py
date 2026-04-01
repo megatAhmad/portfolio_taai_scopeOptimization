@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from app.schemas import ColumnProfile, MappingEntry, RuleConditionNode, RuleGroupNode, RuleSetAst
+from app.services.equipment_id_cleaning import apply_equipment_id_cleaning, normalize_cleaning_config
 
 
 def read_dataset(path: str, file_name: str, sheet_name: str | None = None) -> pd.DataFrame:
@@ -306,6 +307,17 @@ def validate_upload_configuration(
     return resolved_equipment, resolved_join
 
 
+def prepare_dataset_for_matching(dataset) -> pd.DataFrame:
+    frame = read_dataset(dataset.file_path, dataset.file_name, dataset.sheet_name)
+    frame = apply_mapping(frame, dataset.mapping_rules or [])
+    resolved_derived = resolve_derived_columns(dataset.derived_columns or [], dataset.mapping_rules or [], [str(column) for column in frame.columns])
+    frame = apply_derived_columns(frame, resolved_derived)
+    equipment_column = resolve_mapping_target(dataset.mapping_rules or [], dataset.equipment_id_column)
+    cleaning_config = normalize_cleaning_config(getattr(dataset, 'equipment_id_cleaning_config', {}) or {})
+    frame, _ = apply_equipment_id_cleaning(frame, equipment_column, cleaning_config)
+    return frame
+
+
 def build_match_table(base: pd.DataFrame, sup: pd.DataFrame, left_key: str, right_key: str, dataset_name: str, strategy: str, fuzzy_threshold: float) -> pd.DataFrame:
     raw_lookup: dict[str, list[dict[str, Any]]] = {}
     normalized_lookup: dict[str, list[dict[str, Any]]] = {}
@@ -379,18 +391,11 @@ def build_match_table(base: pd.DataFrame, sup: pd.DataFrame, left_key: str, righ
 
 
 def build_master_dataframe(canonical_dataset, supplementary_datasets) -> pd.DataFrame:
-    base = read_dataset(canonical_dataset.file_path, canonical_dataset.file_name, canonical_dataset.sheet_name)
-    base = apply_mapping(base, canonical_dataset.mapping_rules or [])
-    resolved_derived = resolve_derived_columns(canonical_dataset.derived_columns or [], canonical_dataset.mapping_rules or [], [str(column) for column in base.columns])
-    base = apply_derived_columns(base, resolved_derived)
-
+    base = prepare_dataset_for_matching(canonical_dataset)
     canonical_key = resolve_mapping_target(canonical_dataset.mapping_rules or [], canonical_dataset.equipment_id_column)
 
     for dataset in supplementary_datasets:
-        sup = read_dataset(dataset.file_path, dataset.file_name, dataset.sheet_name)
-        sup = apply_mapping(sup, dataset.mapping_rules or [])
-        resolved_sup_derived = resolve_derived_columns(dataset.derived_columns or [], dataset.mapping_rules or [], [str(column) for column in sup.columns])
-        sup = apply_derived_columns(sup, resolved_sup_derived)
+        sup = prepare_dataset_for_matching(dataset)
         right_key = resolve_mapping_target(dataset.mapping_rules or [], dataset.equipment_id_column)
         matching_config = dataset.matching_config or {'strategy': 'normalized', 'fuzzy_threshold': 0.82}
 

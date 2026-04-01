@@ -142,6 +142,7 @@ export function ProjectPage() {
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ocean">{dataset.role}</span>
                       {dataset.sheet_name && <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ember">Sheet: {dataset.sheet_name}</span>}
                       {dataset.role === 'supplementary' && <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine">{dataset.matching_config.strategy} match</span>}
+                      {dataset.equipment_id_cleaning_config.enabled && <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink">ID cleaning on</span>}
                     </div>
                     <h3 className="mt-3 font-display text-xl text-ink">{dataset.name}</h3>
                     <p className="text-sm text-slate-600">{dataset.file_name}</p>

@@ -15,6 +15,7 @@ from app.schemas import (
     ClassificationRunRead,
     DatasetInspectionResponse,
     DatasetRead,
+    EquipmentIdCleaningConfig,
     MappingEntry,
     MatchingConfig,
     ProjectCreate,
@@ -37,6 +38,7 @@ from app.services.dataframe_engine import (
     suggest_mappings,
     validate_upload_configuration,
 )
+from app.services.equipment_id_cleaning import apply_equipment_id_cleaning
 from app.services.files import persist_upload, purge_path, purge_tree
 
 router = APIRouter()
@@ -81,6 +83,8 @@ def inspect_dataset_file(
     project_id: int | None = Form(None),
     role: str = Form('canonical'),
     sheet_name: str | None = Form(None),
+    equipment_id_column: str | None = Form(None),
+    equipment_id_cleaning_config: str = Form('{}'),
     db: Session = Depends(get_db),
 ):
     try:
@@ -107,6 +111,25 @@ def inspect_dataset_file(
     columns, preview_rows = preview_dataframe(df)
     profile = profile_dataframe(df)
     suggestions = suggest_mappings(columns, canonical_columns or columns)
+    transformed_columns: list[str] = []
+    transformed_preview_rows: list[dict[str, object]] = []
+    audit_records = []
+    transformed_row_count = 0
+    changed_row_count = 0
+
+    if equipment_id_column:
+        if equipment_id_column not in columns:
+            raise HTTPException(status_code=400, detail='Selected equipment ID column not found in inspected file')
+        try:
+            cleaning_config = EquipmentIdCleaningConfig.model_validate(json.loads(equipment_id_cleaning_config))
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f'Invalid equipment ID cleaning configuration: {exc}') from exc
+        transformed_df, audits = apply_equipment_id_cleaning(df.copy(), equipment_id_column, cleaning_config)
+        transformed_columns, transformed_preview_rows = preview_dataframe(transformed_df)
+        audit_records = [item.model_dump() for item in audits]
+        transformed_row_count = len(transformed_df)
+        changed_row_count = sum(1 for item in audits if item.parse_status != 'unchanged')
+
     return DatasetInspectionResponse(
         file_name=file.filename,
         file_type=file_type,
@@ -116,6 +139,11 @@ def inspect_dataset_file(
         preview_rows=preview_rows,
         schema_profile=profile,
         mapping_suggestions=suggestions,
+        transformed_columns=transformed_columns,
+        transformed_preview_rows=transformed_preview_rows,
+        equipment_id_audit=audit_records,
+        transformed_row_count=transformed_row_count,
+        changed_row_count=changed_row_count,
     )
 
 
@@ -179,6 +207,7 @@ def upload_dataset(
     mapping_rules: str = Form('[]'),
     derived_columns: str = Form('[]'),
     matching_config: str = Form('{"strategy":"normalized","fuzzy_threshold":0.82}'),
+    equipment_id_cleaning_config: str = Form('{}'),
     db: Session = Depends(get_db),
 ):
     project = db.get(Project, project_id)
@@ -196,6 +225,7 @@ def upload_dataset(
         parsed_mapping_rules = [MappingEntry.model_validate(item).model_dump() for item in json.loads(mapping_rules)]
         parsed_derived = json.loads(derived_columns)
         parsed_matching = MatchingConfig.model_validate(json.loads(matching_config)).model_dump()
+        parsed_cleaning = EquipmentIdCleaningConfig.model_validate(json.loads(equipment_id_cleaning_config)).model_dump()
     except (json.JSONDecodeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f'Invalid dataset configuration: {exc}') from exc
 
@@ -217,6 +247,7 @@ def upload_dataset(
         )
         resolved_derived = resolve_derived_columns(parsed_derived, parsed_mapping_rules, [str(column) for column in mapped_df.columns])
         mapped_df = apply_derived_columns(mapped_df, resolved_derived)
+        mapped_df, _ = apply_equipment_id_cleaning(mapped_df, resolve_mapping_target(parsed_mapping_rules, equipment_id_column), parsed_cleaning)
         _, preview_rows = preview_dataframe(mapped_df)
         schema_profile = [profile.model_dump() for profile in profile_dataframe(mapped_df)]
     except Exception as exc:
@@ -244,6 +275,7 @@ def upload_dataset(
         preview_rows=preview_rows,
         schema_profile=schema_profile,
         matching_config=parsed_matching,
+        equipment_id_cleaning_config=parsed_cleaning,
     )
     db.add(dataset)
     db.commit()

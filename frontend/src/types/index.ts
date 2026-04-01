@@ -25,6 +25,25 @@ export type MatchingConfig = {
   fuzzy_threshold: number
 }
 
+export type EquipmentIdCleaningConfig = {
+  enabled: boolean
+  remove_bracketed_content: boolean
+  bridge_bracket_gap_with_dash: boolean
+  expand_compound_ids: boolean
+  remove_whitespace: boolean
+  uppercase: boolean
+}
+
+export type EquipmentIdAuditRecord = {
+  source_row_index: number
+  equipment_id_raw: string
+  equipment_id_intermediate?: string | null
+  equipment_id_final: string[]
+  change_types: string[]
+  parse_status: 'unchanged' | 'cleaned' | 'expanded' | 'ambiguous'
+  notes: string[]
+}
+
 export type DerivedCondition = {
   column: string
   data_type: 'text' | 'numeric' | 'date'
@@ -50,6 +69,11 @@ export type DatasetInspection = {
   preview_rows: Record<string, unknown>[]
   schema_profile: ColumnProfile[]
   mapping_suggestions: MappingEntry[]
+  transformed_columns: string[]
+  transformed_preview_rows: Record<string, unknown>[]
+  equipment_id_audit: EquipmentIdAuditRecord[]
+  transformed_row_count: number
+  changed_row_count: number
 }
 
 export type Dataset = {
@@ -67,6 +91,7 @@ export type Dataset = {
   preview_rows: Record<string, unknown>[]
   schema_profile: ColumnProfile[]
   matching_config: MatchingConfig
+  equipment_id_cleaning_config: EquipmentIdCleaningConfig
   created_at: string
 }
 

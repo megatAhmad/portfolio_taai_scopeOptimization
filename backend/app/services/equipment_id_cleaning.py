@@ -54,8 +54,8 @@ def remove_bracketed_content(value: str, bridge_gap_with_dash: bool) -> tuple[st
 def cleanup_separators(value: str) -> str:
     text = re.sub(r'\s*-\s*', '-', value)
     text = re.sub(r'-{2,}', '-', text)
-    text = re.sub(r'([/&]){2,}', r'\1', text)
-    text = re.sub(r'(^[-/&]+|[-/&]+$)', '', text)
+    text = re.sub(r'([/&,\s]){2,}', lambda match: match.group(0)[0], text)
+    text = re.sub(r'(^[-/&,\s]+|[-/&,\s]+$)', '', text)
     return text.strip()
 
 
@@ -75,10 +75,10 @@ def _infer_shorthand(base: str, token: str) -> str | None:
 
 
 def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
-    if '&' not in value and '/' not in value:
+    if '&' not in value and '/' not in value and ',' not in value:
         return [value], False, False, []
 
-    tokens = [item.strip() for item in re.split(r'[&/]', value) if item.strip()]
+    tokens = [item.strip() for item in re.split(r'[&/,]', value) if item.strip()]
     if len(tokens) <= 1:
         return [value], False, False, []
 
@@ -140,7 +140,10 @@ def transform_equipment_id(value: Any, config: EquipmentIdCleaningConfig) -> tup
             upper = next_item.upper()
             case_changed = case_changed or upper != next_item
             next_item = upper
-        final_ids.append(next_item)
+        if re.search(r'\d', next_item):
+            final_ids.append(next_item)
+        elif next_item:
+            notes.append(f'Ignored expansion "{next_item}" because it contains no digits')
 
     if whitespace_changed:
         change_types.append('whitespace_removed')

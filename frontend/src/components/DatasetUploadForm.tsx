@@ -508,7 +508,7 @@ export function DatasetUploadForm({
                     disabled={!equipmentIdCleaningConfig.enabled}
                     onChange={(event) => setEquipmentIdCleaningConfig((current) => ({ ...current, expand_compound_ids: event.target.checked }))}
                   />
-                  Expand IDs containing `&` or `/`
+                  Expand IDs containing `&`, `/`, or `,`
                 </label>
                 <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
                   <input

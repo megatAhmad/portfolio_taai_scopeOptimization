@@ -28,11 +28,12 @@ For the selected equipment ID column, process values in this order:
 3. Apply bracket-gap replacement logic:
    - if alphanumeric content exists on both sides of the removed bracket block, replace the removed block with `-`
    - otherwise remove the block entirely
-4. Parse compound IDs joined by `&` or `/`.
+4. Parse compound IDs joined by `&`, `/`, or `,`.
 5. Expand compound IDs into one or more output IDs.
 6. Normalize separator artifacts created by cleaning or expansion.
 7. Remove whitespace at the end.
-8. Emit one row per final equipment ID.
+8. Drop any final emitted expansion that contains no digits.
+9. Emit one row per final equipment ID.
 
 Whitespace removal is intentionally last so spacing remains available as a parsing clue for compound IDs.
 
@@ -65,20 +66,36 @@ Supported delimiters:
 
 - `&`
 - `/`
+- `,`
 
 Expansion categories:
 
 - Fully explicit IDs:
   - `101A & 101B` -> `101A`, `101B`
   - `101A/101B` -> `101A`, `101B`
+  - `101A,101B` -> `101A`, `101B`
 - Shorthand inherited IDs:
   - `101A&B` -> `101A`, `101B`
   - `101A/B` -> `101A`, `101B`
+  - `101A,B` -> `101A`, `101B`
   - `P-101A/B/C` -> `P-101A`, `P-101B`, `P-101C`
 - Totally different IDs:
   - `101A-CC/405R-BL2` -> `101A-CC`, `405R-BL2`
 
-### 3. Whitespace Removal
+### 3. Digit Requirement For Expanded IDs
+
+After shorthand resolution and final normalization, discard any emitted ID that contains no digits.
+
+Examples:
+
+- `101A/B` -> `101A`, `101B`
+- `101A,B` -> `101A`, `101B`
+- `101A/ABC` -> `101A`
+- `PUMPA/PUMPB` -> both dropped if neither contains digits
+
+This rule should be applied after inheritance so shorthand fragments such as `B` can still become `101B` and remain valid.
+
+### 4. Whitespace Removal
 
 Whitespace is removed only after expansion logic completes.
 
@@ -310,8 +327,9 @@ Purpose:
 Suggested columns:
 
 - source row index
+- expanded row index
 - raw equipment ID
-- final expanded IDs
+- final expanded ID
 - change types
 - parse status
 - notes
@@ -326,6 +344,8 @@ Suggested behavior:
 
 - hidden when no changes exist
 - visible when at least one row was changed or expanded
+- when expanded rows exist, render audit at the expanded-row level rather than grouping all final IDs into one audit line
+- keep `Uploaded Data Review` and `ID Audit` aligned so `101A/B` appears as one row for `101A` and one row for `101B` in both sections
 
 ## Auditability Requirements
 
@@ -357,11 +377,13 @@ This traceability should be available both in inspection preview and downstream 
 
 - `101A & 101B` -> `101A`, `101B`
 - `101A/101B` -> `101A`, `101B`
+- `101A,101B` -> `101A`, `101B`
 
 ### Shorthand Expansion
 
 - `101A&B` -> `101A`, `101B`
 - `101A/B` -> `101A`, `101B`
+- `101A,B` -> `101A`, `101B`
 - `P-101A/B/C` -> `P-101A`, `P-101B`, `P-101C`
 
 ### Different IDs
@@ -372,6 +394,13 @@ This traceability should be available both in inspection preview and downstream 
 
 - `101 A` -> `101A`
 - ` 101A / 101B ` -> `101A`, `101B`
+- ` 101A , 101B ` -> `101A`, `101B`
+
+### Ignore Alpha-Only Expansions
+
+- `101A/ABC` -> `101A`
+- `101A,B` -> `101A`, `101B`
+- `101A/ONLYTEXT` -> `101A`
 
 ### Ambiguity Cases
 
@@ -389,8 +418,9 @@ Deliver the safest high-value foundation:
 
 - cleaning config in UI and backend
 - bracket removal
-- explicit `&` and `/` splitting
+- explicit `&`, `/`, and `,` splitting
 - final whitespace removal
+- ignore alpha-only emitted expansions
 - uploaded data review section
 - ID audit section
 
@@ -400,7 +430,13 @@ Add shorthand inheritance support:
 
 - `101A&B`
 - `101A/B`
+- `101A,B`
 - repeated suffix inheritance such as `P-101A/B/C`
+
+Status update:
+
+- lightweight shorthand inheritance has already been implemented as part of the current build
+- future work should focus on making ambiguity handling stricter rather than introducing shorthand support for the first time
 
 ### Phase 3
 
@@ -419,10 +455,11 @@ Add tests for:
 
 - bracket removal logic
 - bracket dash-bridge logic
-- explicit splitting
+- explicit splitting for `&`, `/`, and `,`
 - shorthand inheritance
 - structurally different ID splitting
 - whitespace removal at end
+- dropping alpha-only emitted IDs
 - row duplication behavior
 - audit record generation
 - ambiguity flagging
@@ -444,6 +481,7 @@ Add tests for:
 - cleaning config form behavior
 - transformed data preview rendering
 - audit table rendering
+- expanded-row audit rendering aligned with uploaded-data review
 - changed-only and ambiguous-only filters
 - upload payload includes cleaning config
 
@@ -467,3 +505,13 @@ That gives users immediate value with:
 - self-audit tooling before upload
 
 Then add shorthand inheritance only after the preview and audit experience is in place, so users can verify the parser's behavior with confidence.
+
+## Post-Implementation Corrections
+
+The following corrections were made after the initial plan was written and are now part of the expected behavior:
+
+- compound splitting now supports `,` in addition to `&` and `/`
+- whitespace removal remains at the end of the pipeline
+- alpha-only emitted expansions are dropped after final normalization
+- `ID Audit` now mirrors expanded rows instead of only showing grouped source-level audit entries
+- shorthand expansion such as `101A/B` is already implemented and emits separate rows `101A` and `101B`

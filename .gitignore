@@ -13,7 +13,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -73,5 +73,5 @@ tmp/
 uploads/
 backend/data/
 frontend/node_modules/
-frontend/dist/
+# frontend/src/lib
 frontend/package-lock.json

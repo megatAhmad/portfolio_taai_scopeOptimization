@@ -54,7 +54,7 @@ def remove_bracketed_content(value: str, bridge_gap_with_dash: bool) -> tuple[st
 def cleanup_separators(value: str) -> str:
     text = re.sub(r'\s*-\s*', '-', value)
     text = re.sub(r'-{2,}', '-', text)
-    text = re.sub(r'([/&,\s]){2,}', lambda match: match.group(0)[0], text)
+    text = re.sub(r'([/&,]){2,}', r'\1', text)
     text = re.sub(r'(^[-/&,\s]+|[-/&,\s]+$)', '', text)
     return text.strip()
 
@@ -87,12 +87,18 @@ def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
     notes: list[str] = []
 
     for token in tokens[1:]:
+        if re.fullmatch(r'[A-Za-z]+', token) and len(token) > 1:
+            notes.append(f'Ignored expansion "{token}" because it contains no digits')
+            continue
+
         inherited = _infer_shorthand(tokens[0], token)
         if inherited:
             expanded.append(inherited)
             continue
 
-        if len(token) < len(tokens[0]) and not any(separator in token for separator in '-_/'):
+        compact_base = re.sub(r'\s+', '', tokens[0])
+        compact_token = re.sub(r'\s+', '', token)
+        if len(compact_token) < len(compact_base) and not any(separator in token for separator in '-_/') and not re.search(r'\d', token):
             ambiguous = True
             notes.append(f'Ambiguous shorthand token "{token}" kept as standalone ID')
         expanded.append(token)

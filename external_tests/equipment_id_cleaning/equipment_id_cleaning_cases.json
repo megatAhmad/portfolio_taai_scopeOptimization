@@ -1,0 +1,201 @@
+[
+  {
+    "id": "no-change-001",
+    "type": "transform",
+    "description": "Simple ID stays unchanged",
+    "input": "101A",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A",
+      "final_ids": ["101A"],
+      "change_types": [],
+      "parse_status": "unchanged"
+    }
+  },
+  {
+    "id": "bracket-bridge-001",
+    "type": "transform",
+    "description": "Bracket content removed and bridged with dash",
+    "input": "101A(CC)B",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A-B",
+      "final_ids": ["101A-B"],
+      "change_types": ["bracket_removed"],
+      "parse_status": "cleaned"
+    }
+  },
+  {
+    "id": "explicit-slash-001",
+    "type": "transform",
+    "description": "Explicit slash split",
+    "input": "101A/101B",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A/101B",
+      "final_ids": ["101A", "101B"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "explicit-comma-001",
+    "type": "transform",
+    "description": "Comma behaves as split delimiter",
+    "input": "101A,101B",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A,101B",
+      "final_ids": ["101A", "101B"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "shorthand-slash-001",
+    "type": "transform",
+    "description": "Slash shorthand inherits prefix",
+    "input": "101A/B",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A/B",
+      "final_ids": ["101A", "101B"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "shorthand-comma-001",
+    "type": "transform",
+    "description": "Comma shorthand inherits prefix",
+    "input": "101A,B",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A,B",
+      "final_ids": ["101A", "101B"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "different-ids-001",
+    "type": "transform",
+    "description": "Structurally different IDs split without inheritance",
+    "input": "101A-CC/405R-BL2",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A-CC/405R-BL2",
+      "final_ids": ["101A-CC", "405R-BL2"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "whitespace-end-001",
+    "type": "transform",
+    "description": "Whitespace is removed at the end",
+    "input": " 101 A / 101B ",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101 A / 101B",
+      "final_ids": ["101A", "101B"],
+      "change_types_contains": ["expanded_from_compound", "whitespace_removed"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "drop-alpha-only-001",
+    "type": "transform",
+    "description": "Alpha-only emitted expansion is dropped",
+    "input": "101A/ABC",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "101A/ABC",
+      "final_ids": ["101A"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded",
+      "notes_contains": ["Ignored expansion"]
+    }
+  },
+  {
+    "id": "disabled-cleaning-001",
+    "type": "transform",
+    "description": "Cleaning disabled leaves value untouched",
+    "input": "101A/B",
+    "config": {
+      "enabled": false
+    },
+    "expected": {
+      "intermediate": "101A/B",
+      "final_ids": ["101A/B"],
+      "change_types": [],
+      "parse_status": "unchanged"
+    }
+  },
+  {
+    "id": "dataframe-shorthand-slash-001",
+    "type": "dataframe",
+    "description": "Dataframe expansion emits one row per final ID",
+    "equipment_column": "equipment_id",
+    "config": {
+      "enabled": true
+    },
+    "rows": [
+      {
+        "equipment_id": "101A/B",
+        "tag": "pump"
+      }
+    ],
+    "expected": {
+      "row_count": 2,
+      "final_ids": ["101A", "101B"],
+      "source_row_indexes": [0, 0],
+      "expansion_counts": [2, 2],
+      "copied_columns": {
+        "tag": ["pump", "pump"]
+      }
+    }
+  },
+  {
+    "id": "dataframe-comma-001",
+    "type": "dataframe",
+    "description": "Comma split duplicates other fields",
+    "equipment_column": "equipment_id",
+    "config": {
+      "enabled": true
+    },
+    "rows": [
+      {
+        "equipment_id": "101A,101B",
+        "service": "cooling"
+      }
+    ],
+    "expected": {
+      "row_count": 2,
+      "final_ids": ["101A", "101B"],
+      "source_row_indexes": [0, 0],
+      "expansion_counts": [2, 2],
+      "copied_columns": {
+        "service": ["cooling", "cooling"]
+      }
+    }
+  }
+]

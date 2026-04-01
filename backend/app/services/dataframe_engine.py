@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.schemas import ColumnProfile, MappingEntry, RuleConditionNode, RuleGroupNode, RuleSetAst
+from app.schemas import ColumnProfile, DerivedColumnAuditRecord, DerivedConditionAuditRecord, MappingEntry, RuleConditionNode, RuleGroupNode, RuleSetAst
 from app.services.equipment_id_cleaning import apply_equipment_id_cleaning, normalize_cleaning_config
 
 
@@ -251,6 +251,63 @@ def apply_derived_columns(df: pd.DataFrame, derived_columns: list[dict[str, Any]
 
         working[definition['name']] = working.apply(compute, axis=1)
     return working
+
+
+def apply_derived_columns_with_audit(df: pd.DataFrame, derived_columns: list[dict[str, Any]]) -> tuple[pd.DataFrame, list[DerivedColumnAuditRecord]]:
+    working = df.copy()
+    audits: list[DerivedColumnAuditRecord] = []
+
+    for definition in derived_columns:
+        column_name = definition['name']
+        outputs: list[Any] = []
+
+        for row_index, (_, row) in enumerate(working.iterrows()):
+            condition_audits: list[DerivedConditionAuditRecord] = []
+            results: list[bool] = []
+            has_null = False
+
+            for condition in definition.get('conditions', []):
+                actual_value = row.get(condition['column'])
+                outcome = evaluate_condition(actual_value, condition)
+                if outcome is None:
+                    has_null = True
+                results.append(bool(outcome))
+                condition_audits.append(
+                    DerivedConditionAuditRecord(
+                        column=condition['column'],
+                        operator=condition['operator'],
+                        data_type=condition['data_type'],
+                        expected_value=condition.get('value'),
+                        secondary_value=condition.get('secondary_value'),
+                        actual_value=actual_value,
+                        result=outcome,
+                    )
+                )
+
+            if has_null and definition.get('null_value') is not None:
+                output_value = definition.get('null_value')
+                branch_taken = 'null'
+            elif all(results):
+                output_value = definition['true_value']
+                branch_taken = 'true'
+            else:
+                output_value = definition.get('false_value')
+                branch_taken = 'false'
+
+            outputs.append(output_value)
+            audits.append(
+                DerivedColumnAuditRecord(
+                    source_row_index=row_index,
+                    derived_column=column_name,
+                    output_value=output_value,
+                    branch_taken=branch_taken,
+                    conditions=condition_audits,
+                )
+            )
+
+        working[column_name] = outputs
+
+    return working, audits
 
 
 def validate_mapping_rules(mapping_rules: list[dict[str, Any]]) -> None:

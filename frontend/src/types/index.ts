@@ -60,6 +60,24 @@ export type DerivedColumn = {
   null_value?: string
 }
 
+export type DerivedConditionAuditRecord = {
+  column: string
+  operator: string
+  data_type: 'text' | 'numeric' | 'date'
+  expected_value?: unknown
+  secondary_value?: unknown
+  actual_value?: unknown
+  result?: boolean | null
+}
+
+export type DerivedColumnAuditRecord = {
+  source_row_index: number
+  derived_column: string
+  output_value?: unknown
+  branch_taken: 'true' | 'false' | 'null'
+  conditions: DerivedConditionAuditRecord[]
+}
+
 export type DatasetInspection = {
   file_name: string
   file_type: 'csv' | 'excel'
@@ -72,6 +90,7 @@ export type DatasetInspection = {
   transformed_columns: string[]
   transformed_preview_rows: Record<string, unknown>[]
   equipment_id_audit: EquipmentIdAuditRecord[]
+  derived_column_audit: DerivedColumnAuditRecord[]
   transformed_row_count: number
   changed_row_count: number
 }

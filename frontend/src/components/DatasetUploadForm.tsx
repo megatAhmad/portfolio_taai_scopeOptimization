@@ -29,6 +29,14 @@ function getIncludedTargets(entries: MappingEntry[]) {
   return entries.filter((entry) => entry.include).map((entry) => entry.target.trim())
 }
 
+function formatAuditValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
 export function DatasetUploadForm({
   projectId,
   datasets,
@@ -63,6 +71,8 @@ export function DatasetUploadForm({
   const [sheetModalOpen, setSheetModalOpen] = useState(false)
   const [auditPageSize, setAuditPageSize] = useState(10)
   const [auditPage, setAuditPage] = useState(0)
+  const [derivedAuditPageSize, setDerivedAuditPageSize] = useState(10)
+  const [derivedAuditPage, setDerivedAuditPage] = useState(0)
 
   useEffect(() => {
     if (canonicalDataset) {
@@ -84,11 +94,15 @@ export function DatasetUploadForm({
       return
     }
     void refreshTransformedPreview(file, selectedSheet || undefined)
-  }, [equipmentIdColumn, equipmentIdCleaningConfig, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
+  }, [equipmentIdColumn, equipmentIdCleaningConfig, derivedColumns, file, inspection?.file_name, inspecting, role, selectedSheet, sheetModalOpen])
 
   useEffect(() => {
     setAuditPage(0)
   }, [inspection?.file_name, inspection?.changed_row_count, auditPageSize, equipmentIdColumn])
+
+  useEffect(() => {
+    setDerivedAuditPage(0)
+  }, [inspection?.file_name, inspection?.derived_column_audit.length, derivedAuditPageSize])
 
   async function inspectFile(nextFile: File, nextRole: 'canonical' | 'supplementary', sheetName?: string) {
     const formData = new FormData()
@@ -131,6 +145,7 @@ export function DatasetUploadForm({
     formData.append('role', role)
     formData.append('equipment_id_column', equipmentIdColumn)
     formData.append('equipment_id_cleaning_config', JSON.stringify(equipmentIdCleaningConfig))
+    formData.append('derived_columns', JSON.stringify(derivedColumns))
     if (nextSheetName) {
       formData.append('sheet_name', nextSheetName)
     }
@@ -308,6 +323,13 @@ export function DatasetUploadForm({
   const auditPageCount = Math.max(1, Math.ceil(auditRows.length / auditPageSize))
   const safeAuditPage = Math.min(auditPage, auditPageCount - 1)
   const pagedAuditRows = auditRows.slice(safeAuditPage * auditPageSize, safeAuditPage * auditPageSize + auditPageSize)
+  const derivedAuditRows = inspection?.derived_column_audit ?? []
+  const derivedAuditPageCount = Math.max(1, Math.ceil(derivedAuditRows.length / derivedAuditPageSize))
+  const safeDerivedAuditPage = Math.min(derivedAuditPage, derivedAuditPageCount - 1)
+  const pagedDerivedAuditRows = derivedAuditRows.slice(
+    safeDerivedAuditPage * derivedAuditPageSize,
+    safeDerivedAuditPage * derivedAuditPageSize + derivedAuditPageSize,
+  )
 
   return (
     <>
@@ -756,6 +778,90 @@ export function DatasetUploadForm({
                 ))}
               </div>
             </section>
+
+            {derivedAuditRows.length > 0 && (
+              <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center gap-3">
+                  <WandSparkles size={18} className="text-ocean" />
+                  <div>
+                    <h3 className="font-display text-lg text-ink">Derived Value Audit</h3>
+                    <p className="text-sm text-slate-600">Review each derived output, the branch taken, and the condition-level evidence behind it.</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-slate-600">
+                    Showing {derivedAuditRows.length === 0 ? 0 : safeDerivedAuditPage * derivedAuditPageSize + 1} to {Math.min((safeDerivedAuditPage + 1) * derivedAuditPageSize, derivedAuditRows.length)} of {derivedAuditRows.length} derived audit rows
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-sm font-medium text-slate-700">
+                      Rows per page
+                      <select
+                        value={derivedAuditPageSize}
+                        onChange={(event) => setDerivedAuditPageSize(Number(event.target.value))}
+                        className="ml-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value={10}>10</option>
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDerivedAuditPage((current) => Math.max(current - 1, 0))}
+                        disabled={safeDerivedAuditPage === 0}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDerivedAuditPage((current) => Math.min(current + 1, derivedAuditPageCount - 1))}
+                        disabled={safeDerivedAuditPage >= derivedAuditPageCount - 1}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-100 text-left text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Source row</th>
+                        <th className="px-3 py-2 font-semibold">Derived column</th>
+                        <th className="px-3 py-2 font-semibold">Output</th>
+                        <th className="px-3 py-2 font-semibold">Branch</th>
+                        <th className="px-3 py-2 font-semibold">Conditions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedDerivedAuditRows.map((row, index) => (
+                        <tr key={`${row.source_row_index}-${row.derived_column}-${index}`} className="border-t border-slate-100 align-top">
+                          <td className="px-3 py-2">{row.source_row_index}</td>
+                          <td className="px-3 py-2 font-medium text-slate-700">{row.derived_column}</td>
+                          <td className="px-3 py-2">{formatAuditValue(row.output_value)}</td>
+                          <td className="px-3 py-2">{row.branch_taken}</td>
+                          <td className="px-3 py-2">
+                            <div className="space-y-2">
+                              {row.conditions.map((condition, conditionIndex) => (
+                                <div key={`${row.source_row_index}-${row.derived_column}-${conditionIndex}`} className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                                  <div className="font-semibold text-slate-700">{condition.column} {condition.operator}</div>
+                                  <div className="text-slate-600">Actual: {formatAuditValue(condition.actual_value)}</div>
+                                  <div className="text-slate-600">Expected: {formatAuditValue(condition.expected_value)}{condition.secondary_value !== null && condition.secondary_value !== undefined && condition.secondary_value !== '' ? ` / ${formatAuditValue(condition.secondary_value)}` : ''}</div>
+                                  <div className="text-slate-600">Result: {condition.result === null ? 'Null' : condition.result ? 'Matched' : 'Not matched'}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
             {role === 'supplementary' && (
               <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">

@@ -80,6 +80,24 @@ class DerivedColumnDefinition(BaseModel):
     null_value: str | None = None
 
 
+class DerivedConditionAuditRecord(BaseModel):
+    column: str
+    operator: str
+    data_type: Literal['text', 'numeric', 'date']
+    expected_value: Any | None = None
+    secondary_value: Any | None = None
+    actual_value: Any | None = None
+    result: bool | None = None
+
+
+class DerivedColumnAuditRecord(BaseModel):
+    source_row_index: int
+    derived_column: str
+    output_value: Any | None = None
+    branch_taken: Literal['true', 'false', 'null']
+    conditions: list[DerivedConditionAuditRecord] = Field(default_factory=list)
+
+
 class DatasetInspectionResponse(BaseModel):
     file_name: str
     file_type: Literal['csv', 'excel']
@@ -92,6 +110,7 @@ class DatasetInspectionResponse(BaseModel):
     transformed_columns: list[str] = Field(default_factory=list)
     transformed_preview_rows: list[dict[str, Any]] = Field(default_factory=list)
     equipment_id_audit: list[EquipmentIdAuditRecord] = Field(default_factory=list)
+    derived_column_audit: list[DerivedColumnAuditRecord] = Field(default_factory=list)
     transformed_row_count: int = 0
     changed_row_count: int = 0
 

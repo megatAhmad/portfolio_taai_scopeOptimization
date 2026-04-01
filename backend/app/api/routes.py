@@ -26,6 +26,7 @@ from app.schemas import (
 from app.services.classification_storage import artifact_file_path, export_run_file, load_run_page, persist_run_artifacts
 from app.services.dataframe_engine import (
     apply_derived_columns,
+    apply_derived_columns_with_audit,
     apply_mapping,
     build_master_dataframe,
     classify_dataframe,
@@ -85,6 +86,7 @@ def inspect_dataset_file(
     sheet_name: str | None = Form(None),
     equipment_id_column: str | None = Form(None),
     equipment_id_cleaning_config: str = Form('{}'),
+    derived_columns: str = Form('[]'),
     db: Session = Depends(get_db),
 ):
     try:
@@ -114,6 +116,7 @@ def inspect_dataset_file(
     transformed_columns: list[str] = []
     transformed_preview_rows: list[dict[str, object]] = []
     audit_records = []
+    derived_audit_records = []
     transformed_row_count = 0
     changed_row_count = 0
 
@@ -130,6 +133,15 @@ def inspect_dataset_file(
         transformed_row_count = len(transformed_df)
         changed_row_count = sum(1 for item in audits if item.parse_status != 'unchanged')
 
+    if derived_columns not in {'', '[]'}:
+        try:
+            parsed_derived = json.loads(derived_columns)
+            resolved_derived = resolve_derived_columns(parsed_derived, [], columns)
+            _, derived_audits = apply_derived_columns_with_audit(df.copy(), resolved_derived)
+            derived_audit_records = [item.model_dump() for item in derived_audits]
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f'Invalid derived column configuration: {exc}') from exc
+
     return DatasetInspectionResponse(
         file_name=file.filename,
         file_type=file_type,
@@ -142,6 +154,7 @@ def inspect_dataset_file(
         transformed_columns=transformed_columns,
         transformed_preview_rows=transformed_preview_rows,
         equipment_id_audit=audit_records,
+        derived_column_audit=derived_audit_records,
         transformed_row_count=transformed_row_count,
         changed_row_count=changed_row_count,
     )

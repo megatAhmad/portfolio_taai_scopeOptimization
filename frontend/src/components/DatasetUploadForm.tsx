@@ -280,18 +280,19 @@ export function DatasetUploadForm({
   const readyForPreview = Boolean(inspection && inspection.columns.length > 0)
   const workbookOnly = Boolean(inspection && inspection.file_type === 'excel' && inspection.columns.length === 0)
   const changedAuditRows = inspection?.equipment_id_audit.filter((row) => row.parse_status !== 'unchanged') ?? []
-  const expandedAuditRows = (inspection?.transformed_preview_rows ?? [])
-    .filter((row) => String(row.equipment_id_parse_status ?? 'unchanged') !== 'unchanged')
-    .map((row, index) => ({
-      key: `${String(row.equipment_id_source_row_index ?? index)}-${String(row.equipment_id_expansion_index ?? index)}-${String(row[equipmentIdColumn] ?? '')}`,
-      source_row_index: String(row.equipment_id_source_row_index ?? index),
-      raw_id: String(row.equipment_id_raw ?? ''),
-      final_id: String(row[equipmentIdColumn] ?? ''),
-      change_types: String(row.equipment_id_change_types ?? '').split(',').map((item) => item.trim()).filter(Boolean),
-      parse_status: String(row.equipment_id_parse_status ?? 'unchanged'),
-      notes: String(row.equipment_id_audit_notes ?? '').split('|').map((item) => item.trim()).filter(Boolean),
-      expansion_index: String(row.equipment_id_expansion_index ?? '0'),
+  const expandedAuditRows = changedAuditRows.flatMap((row) => {
+    const finalIds = row.equipment_id_final.length > 0 ? row.equipment_id_final : ['']
+    return finalIds.map((finalId, index) => ({
+      key: `${row.source_row_index}-${index}-${finalId}`,
+      source_row_index: String(row.source_row_index),
+      raw_id: row.equipment_id_raw,
+      final_id: finalId,
+      change_types: row.change_types,
+      parse_status: row.parse_status,
+      notes: row.notes,
+      expansion_index: String(index),
     }))
+  })
   const auditRows = expandedAuditRows.length > 0
     ? expandedAuditRows
     : changedAuditRows.map((row) => ({

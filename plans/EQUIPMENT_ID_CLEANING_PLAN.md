@@ -24,18 +24,24 @@ This preprocessing must be configurable per dataset and must run before canonica
 For the selected equipment ID column, process values in this order:
 
 1. Preserve `equipment_id_raw`.
-2. Remove bracketed content from `()`, `[]`, and `{}`.
-3. Apply bracket-gap replacement logic:
+2. Remove whitespace as a preprocessing step before any other cleaning logic.
+3. Remove bracketed content from `()`, `[]`, and `{}`.
+4. Apply bracket-gap replacement logic:
    - if alphanumeric content exists on both sides of the removed bracket block, replace the removed block with `-`
    - otherwise remove the block entirely
-4. Parse compound IDs joined by `&`, `/`, or `,`.
-5. Expand compound IDs into one or more output IDs.
-6. Normalize separator artifacts created by cleaning or expansion.
-7. Remove whitespace at the end.
-8. Drop any final emitted expansion that contains no digits.
-9. Emit one row per final equipment ID.
+5. Parse compound IDs joined by `&`, `/`, or `,`.
+6. Expand compound IDs into one or more output IDs.
+7. Normalize separator artifacts created by cleaning or expansion.
+8. Remove whitespace again at the end of the full process.
+9. Drop any final emitted expansion that contains no digits.
+10. Emit one row per final equipment ID.
 
-Whitespace removal is intentionally last so spacing remains available as a parsing clue for compound IDs.
+Whitespace handling now happens in two places:
+
+- an early preprocessing pass removes whitespace before other cleaning logic
+- a final pass removes whitespace again after all parsing and cleanup steps are complete
+
+This reflects the implemented behavior. The phrase "remove whitespace at the end" means the whitespace removal happens at the end of the process, not only at the end of the string.
 
 ## Supported Cleaning Rules
 
@@ -97,7 +103,10 @@ This rule should be applied after inheritance so shorthand fragments such as `B`
 
 ### 4. Whitespace Removal
 
-Whitespace is removed only after expansion logic completes.
+Whitespace is removed twice in the current implementation:
+
+- once before any other cleaning logic
+- once again after expansion logic completes
 
 Examples:
 
@@ -346,6 +355,28 @@ Suggested behavior:
 - visible when at least one row was changed or expanded
 - when expanded rows exist, render audit at the expanded-row level rather than grouping all final IDs into one audit line
 - keep `Uploaded Data Review` and `ID Audit` aligned so `101A/B` appears as one row for `101A` and one row for `101B` in both sections
+- paginate audit rows and allow the user to review them with `10 / 30 / 50` rows per page plus `Previous` and `Next` controls
+
+### Classification Output Review
+
+The classification result table should allow users to control which columns are visible.
+
+Suggested behavior:
+
+- render a list of column toggles above the result table
+- allow users to tick and untick columns
+- provide quick actions such as `Show all` and `Hide all`
+- preserve the evidence trace behavior while hiding only the data table columns
+
+### Wider Workspace Layout
+
+The tool should make better use of wide screens.
+
+Suggested behavior:
+
+- increase the maximum layout width beyond the original centered container
+- give the upload review, audit, and classification tables more horizontal space
+- avoid forcing users into unnecessary horizontal scrolling when sufficient screen width is available
 
 ## Auditability Requirements
 
@@ -419,6 +450,7 @@ Deliver the safest high-value foundation:
 - cleaning config in UI and backend
 - bracket removal
 - explicit `&`, `/`, and `,` splitting
+- early whitespace preprocessing plus final whitespace cleanup
 - final whitespace removal
 - ignore alpha-only emitted expansions
 - uploaded data review section
@@ -511,7 +543,10 @@ Then add shorthand inheritance only after the preview and audit experience is in
 The following corrections were made after the initial plan was written and are now part of the expected behavior:
 
 - compound splitting now supports `,` in addition to `&` and `/`
-- whitespace removal remains at the end of the pipeline
+- whitespace removal now happens both before other cleaning logic and again at the end of the pipeline
 - alpha-only emitted expansions are dropped after final normalization
 - `ID Audit` now mirrors expanded rows instead of only showing grouped source-level audit entries
+- `ID Audit` now supports pagination with `10 / 30 / 50` page sizes and `Previous` / `Next` navigation
 - shorthand expansion such as `101A/B` is already implemented and emits separate rows `101A` and `101B`
+- the classification output table now supports tick/untick column visibility controls
+- the workspace layout now uses a wider container so the review and output tables can use more screen space

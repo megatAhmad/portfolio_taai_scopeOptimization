@@ -122,26 +122,33 @@
           <article class="flow-card">
             <div class="flow-index">04</div>
             <div>
+              <h4>Equipment ID Cleaning Review</h4>
+              <p>The intake flow can preprocess equipment IDs before matching. It removes whitespace up front, applies bracket cleanup, expands compound IDs joined by <code>&amp;</code>, <code>/</code>, or <code>,</code>, removes whitespace again at the end, drops alpha-only emitted IDs, and shows both transformed rows and paged audit output before upload.</p>
+            </div>
+          </article>
+          <article class="flow-card">
+            <div class="flow-index">05</div>
+            <div>
               <h4>Derived Evidence Generation</h4>
               <p>Typed conditions convert raw dataset values into helper labels such as due-status, outage windows, or domain-specific text flags.</p>
             </div>
           </article>
           <article class="flow-card">
-            <div class="flow-index">05</div>
+            <div class="flow-index">06</div>
             <div>
               <h4>Master Dataframe Construction</h4>
               <p>The canonical dataset remains the left-hand anchor. Supplementary datasets are matched and aggregated so duplicate evidence is preserved rather than overwritten.</p>
             </div>
           </article>
           <article class="flow-card">
-            <div class="flow-index">06</div>
+            <div class="flow-index">07</div>
             <div>
               <h4>AST Rule Evaluation</h4>
               <p>Rules are executed in order: <code>Must Have</code> first, then <code>Good to Have</code>, then fallback classification.</p>
             </div>
           </article>
           <article class="flow-card">
-            <div class="flow-index">07</div>
+            <div class="flow-index">08</div>
             <div>
               <h4>Persisted Run Artifacts</h4>
               <p>Rows, explanations, and export files are stored as artifacts. The database keeps metadata and artifact references so large runs stay queryable.</p>
@@ -163,11 +170,12 @@
             <header>
               <span>Frontend</span>
               <h4>Guided Intake UI</h4>
-              <p>Project workspace, upload form, Excel intercept modal, mapping grid, derived columns editor.</p>
+              <p>Project workspace, wider-screen layout, upload form, Excel intercept modal, mapping grid, paged equipment ID audit review, and derived columns editor.</p>
             </header>
             <ul>
               <li>Prevents invalid uploads before they hit the backend.</li>
               <li>Shows schema previews and mapping suggestions.</li>
+              <li>Paginates ID audit review with 10 / 30 / 50 row windows.</li>
               <li>Keeps the user inside an auditable workflow.</li>
             </ul>
           </article>
@@ -179,6 +187,7 @@
             </header>
             <ul>
               <li>Reads CSV and Excel datasets.</li>
+              <li>Pre-cleans and expands equipment IDs before matching.</li>
               <li>Normalizes and matches supplementary sources.</li>
               <li>Produces the master dataframe used for classification.</li>
             </ul>
@@ -192,6 +201,7 @@
             <ul>
               <li>Returns row-level explanation traces.</li>
               <li>Supports paginated result loading.</li>
+              <li>Lets reviewers tick and untick visible result columns.</li>
               <li>Uses Alembic migrations for schema control.</li>
             </ul>
           </article>
@@ -221,6 +231,18 @@
           <div class="tab-panel" id="panel-matching">
             <div class="algorithm-grid">
               <article class="algorithm-card">
+                <h4>Equipment ID Cleaning Pipeline</h4>
+                <p>Before matching, the engine can clean and expand equipment IDs in a deterministic order.</p>
+                <ul>
+                  <li>Preserve the raw ID for audit.</li>
+                  <li>Remove whitespace before other cleaning logic.</li>
+                  <li>Remove bracketed segments and bridge gaps with <code>-</code> when needed.</li>
+                  <li>Split compound IDs on <code>&amp;</code>, <code>/</code>, and <code>,</code>.</li>
+                  <li>Remove whitespace again at the end of the full process.</li>
+                  <li>Drop any emitted ID that contains no digits.</li>
+                </ul>
+              </article>
+              <article class="algorithm-card">
                 <h4>Exact Matching</h4>
                 <p>Compares the canonical join value against the supplementary equipment identifier without normalization. Best for clean, standardized IDs.</p>
                 <div class="badge-row">
@@ -231,7 +253,7 @@
               </article>
               <article class="algorithm-card">
                 <h4>Normalized Matching</h4>
-                <p>Lowercases text, strips whitespace, and removes non-alphanumeric characters so values like <code>P-100</code> and <code>p100</code> resolve together.</p>
+                <p>Lowercases text, strips whitespace, and removes non-alphanumeric characters so values like <code>P-100</code> and <code>p100</code> resolve together after preprocessing has already cleaned and expanded equipment IDs.</p>
                 <div class="badge-row">
                   <span class="badge">Method: normalized_exact</span>
                   <span class="badge">Confidence: 1.0</span>
@@ -262,6 +284,7 @@
               <summary>How matching confidence is exposed</summary>
               <div>
                 <p>The master dataframe retains summary fields such as match method, per-run confidence, and full evidence rows so reviewers can see whether a classification relied on clean joins or softer fuzzy matches.</p>
+                <p>The upload workflow also exposes transformed preview rows and a paged ID audit so users can validate equipment ID cleaning before those rows ever reach the matcher.</p>
               </div>
             </details>
           </div>
@@ -360,6 +383,15 @@
                   <li>Metadata stays in the database</li>
                 </ul>
               </article>
+              <article class="algorithm-card">
+                <h4>Reviewer Controls</h4>
+                <p>The classification result table supports analyst-friendly review controls instead of a fixed spreadsheet view.</p>
+                <ul>
+                  <li>Users can tick and untick columns to control what is visible.</li>
+                  <li>The table remains pageable for large result sets.</li>
+                  <li>Evidence traces stay available even when columns are hidden.</li>
+                </ul>
+              </article>
             </div>
             <details>
               <summary>Why AST-based classification matters</summary>
@@ -394,6 +426,39 @@
           </article>
         </div>
         <p class="footer-note">Open this file locally in a browser to use the theme toggle, tabbed sections, and expandable explanation cards.</p>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <p class="kicker">4. External Validation</p>
+            <h3>How the equipment ID logic is tested outside the platform</h3>
+          </div>
+          <p>The repository includes an external harness that uses the same shared cleaning functions as the backend, so parser changes can be checked quickly without going through the product UI.</p>
+        </div>
+        <div class="card-grid">
+          <article class="card">
+            <h4>Shared Function Reuse</h4>
+            <p>The harness calls the same <code>transform_equipment_id</code> and <code>apply_equipment_id_cleaning</code> functions used by the platform.</p>
+          </article>
+          <article class="card">
+            <h4>Scenario Coverage</h4>
+            <p>Starter cases cover slash, ampersand, comma splitting, shorthand inheritance, whitespace handling, alpha-only drop rules, and row-expansion behavior.</p>
+          </article>
+          <article class="card">
+            <h4>Fast Feedback</h4>
+            <p>Users can run all cases or a single case id from the command line and immediately compare actual outcomes against expected outcomes.</p>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>Current documented external harness behavior</strong>
+          <ul>
+            <li>Compound splitting supports <code>&amp;</code>, <code>/</code>, and <code>,</code>.</li>
+            <li>Whitespace is removed both before other cleaning logic and again at the end of the full process.</li>
+            <li>Alpha-only emitted expansions are ignored after final normalization.</li>
+            <li>Row-expansion checks confirm one final ID per emitted row rather than repeating a full ID list on every row.</li>
+          </ul>
+        </div>
       </section>
     </div>
   </div>

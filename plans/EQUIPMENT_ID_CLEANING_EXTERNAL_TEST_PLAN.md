@@ -217,7 +217,9 @@ Expected:
 
 Purpose:
 
-- verify whitespace is removed only from final emitted IDs
+- verify whitespace is removed in the implemented two-step way:
+- once before other cleaning logic
+- once again at the end of the full process
 
 Scenarios:
 
@@ -230,6 +232,7 @@ Expected:
 
 - no spaces remain in final IDs
 - split logic still works
+- intermediate values should reflect the current implementation, which may already be compacted before bracket removal and expansion logic proceeds
 
 ### Group 8. Ignore Alpha-Only Expansions
 
@@ -394,7 +397,7 @@ That will give you the fastest feedback loop while keeping the test utility outs
 The external harness should now reflect the current implemented behavior:
 
 - compound splitting supports `,` in addition to `&` and `/`
-- whitespace removal happens at the end
+- whitespace removal happens both before other cleaning logic and again at the end
 - alpha-only emitted expansions are dropped after final normalization
 - shorthand cases like `101A/B` and `101A,B` should still resolve to `101A` and `101B`
 - row-expansion assertions should verify one final ID per emitted row

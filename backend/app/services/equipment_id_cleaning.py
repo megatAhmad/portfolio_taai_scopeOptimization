@@ -74,6 +74,39 @@ def _infer_shorthand(base: str, token: str) -> str | None:
     return None
 
 
+def _token_shape(value: str) -> str:
+    chars: list[str] = []
+    for char in value:
+        if char.isdigit():
+            chars.append('D')
+        elif char.isalpha():
+            chars.append('L')
+        else:
+            chars.append(char)
+    return ''.join(chars)
+
+
+def _infer_segment_replacement(base: str, token: str) -> str | None:
+    stripped = token.strip()
+    if not stripped or any(separator in stripped for separator in '-_/'):
+        return None
+
+    hyphen_index = base.rfind('-')
+    if hyphen_index < 0:
+        return None
+
+    prefix = base[:hyphen_index + 1]
+    last_segment = base[hyphen_index + 1:]
+    if not prefix or not last_segment:
+        return None
+    if not re.search(r'\d', stripped) or not re.search(r'\d', last_segment):
+        return None
+    if _token_shape(stripped) != _token_shape(last_segment):
+        return None
+
+    return prefix + stripped
+
+
 def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
     if '&' not in value and '/' not in value and ',' not in value:
         return [value], False, False, []
@@ -94,6 +127,11 @@ def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
         inherited = _infer_shorthand(tokens[0], token)
         if inherited:
             expanded.append(inherited)
+            continue
+
+        segment_replacement = _infer_segment_replacement(tokens[0], token)
+        if segment_replacement:
+            expanded.append(segment_replacement)
             continue
 
         compact_base = re.sub(r'\s+', '', tokens[0])

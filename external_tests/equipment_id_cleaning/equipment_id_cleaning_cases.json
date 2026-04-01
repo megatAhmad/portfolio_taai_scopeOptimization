@@ -105,6 +105,36 @@
     }
   },
   {
+    "id": "segment-replacement-001",
+    "type": "transform",
+    "description": "Hyphen-segment sibling token inherits shared prefix",
+    "input": "ET-0-LG-115AB/116AB",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "ET-0-LG-115AB/116AB",
+      "final_ids": ["ET-0-LG-115AB", "ET-0-LG-116AB"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "segment-replacement-002",
+    "type": "transform",
+    "description": "Shared hyphen prefix is inherited for same-shape sibling token",
+    "input": "P-101A/102A",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "P-101A/102A",
+      "final_ids": ["P-101A", "P-102A"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
     "id": "whitespace-end-001",
     "type": "transform",
     "description": "Whitespace is removed at the end",
@@ -195,6 +225,30 @@
       "expansion_counts": [2, 2],
       "copied_columns": {
         "service": ["cooling", "cooling"]
+      }
+    }
+  },
+  {
+    "id": "dataframe-segment-replacement-001",
+    "type": "dataframe",
+    "description": "Expanded sibling segment rows inherit the full shared prefix",
+    "equipment_column": "equipment_id",
+    "config": {
+      "enabled": true
+    },
+    "rows": [
+      {
+        "equipment_id": "ET-0-LG-115AB/116AB",
+        "system": "lighting"
+      }
+    ],
+    "expected": {
+      "row_count": 2,
+      "final_ids": ["ET-0-LG-115AB", "ET-0-LG-116AB"],
+      "source_row_indexes": [0, 0],
+      "expansion_counts": [2, 2],
+      "copied_columns": {
+        "system": ["lighting", "lighting"]
       }
     }
   }

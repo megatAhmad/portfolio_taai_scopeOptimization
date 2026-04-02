@@ -3,6 +3,7 @@
   --bg: #f4efe6;
   --panel: rgba(255, 252, 247, 0.88);
   --panel-strong: #fffaf2;
+  --panel-glass: rgba(255, 250, 242, 0.78);
   --text: #16212d;
   --muted: #5d6a77;
   --line: rgba(18, 33, 45, 0.12);
@@ -11,6 +12,7 @@
   --accent-2: #d96d37;
   --shadow: 0 24px 70px rgba(26, 43, 56, 0.12);
   --hero: radial-gradient(circle at top left, rgba(14, 124, 102, 0.18), transparent 32%), radial-gradient(circle at top right, rgba(217, 109, 55, 0.18), transparent 28%), linear-gradient(160deg, #f8f1e4 0%, #f4efe6 42%, #eef5f3 100%);
+  --grid-line: rgba(255, 255, 255, 0.24);
   --code: #f0f5f7;
   --chip: #ffffff;
 }
@@ -26,25 +28,38 @@ html {
 body {
   margin: 0;
   font-family: "Manrope", "Segoe UI", sans-serif;
-  background: var(--hero);
+  background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.24) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.24) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent 90%);
-  pointer-events: none;
+  transition: background 220ms ease, color 220ms ease;
 }
 
 .page {
+  position: relative;
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 24px 0 72px;
+  color: var(--text);
+}
+
+.page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--hero);
+  z-index: -2;
+  transition: background 220ms ease;
+}
+
+.page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent 90%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .theme-toggle {
@@ -68,7 +83,7 @@ body::before {
   gap: 16px;
   padding: 14px 18px;
   border: 1px solid var(--line);
-  background: rgba(255, 250, 242, 0.78);
+  background: var(--panel-glass);
   backdrop-filter: blur(18px);
   border-radius: 22px;
   box-shadow: var(--shadow);
@@ -122,6 +137,7 @@ body::before {
   border-radius: 999px;
   font-weight: 700;
   font-size: 0.92rem;
+  transition: background 220ms ease, color 220ms ease, border-color 220ms ease;
 }
 
 .theme-switch {
@@ -232,9 +248,31 @@ body::before {
 
 .card h4,
 .algorithm-card h4,
-.flow-card h4 {
+.flow-card h4,
+.component h4 {
   margin: 0 0 8px;
   font-size: 1.05rem;
+  color: var(--text);
+}
+
+.section h3,
+.hero h2,
+summary,
+.callout strong,
+.badge,
+code,
+.metric strong {
+  color: var(--text);
+}
+
+a,
+label,
+p,
+li,
+span,
+strong,
+summary {
+  transition: color 220ms ease, background 220ms ease, border-color 220ms ease;
 }
 
 .card p,
@@ -363,6 +401,7 @@ body::before {
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--chip);
+  color: var(--text);
   cursor: pointer;
   font-weight: 700;
 }
@@ -423,6 +462,7 @@ code {
   background: var(--code);
   padding: 2px 6px;
   border-radius: 8px;
+  border: 1px solid var(--line);
 }
 
 details {
@@ -456,6 +496,7 @@ summary + div p {
   --bg: #09131b;
   --panel: rgba(10, 21, 30, 0.88);
   --panel-strong: #0f1b24;
+  --panel-glass: rgba(10, 21, 30, 0.78);
   --text: #edf4fb;
   --muted: #9bb0c4;
   --line: rgba(221, 234, 245, 0.12);
@@ -464,6 +505,7 @@ summary + div p {
   --accent-2: #ff9f67;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
   --hero: radial-gradient(circle at top left, rgba(95, 208, 176, 0.16), transparent 32%), radial-gradient(circle at top right, rgba(255, 159, 103, 0.12), transparent 30%), linear-gradient(160deg, #071118 0%, #0a141d 46%, #111c27 100%);
+  --grid-line: rgba(148, 163, 184, 0.12);
   --code: #132331;
   --chip: #12202b;
 }

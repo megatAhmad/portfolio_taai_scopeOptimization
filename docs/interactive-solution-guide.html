@@ -24,7 +24,9 @@
         <div class="topbar-actions">
           <a href="#problem">Problem</a>
           <a href="#flow">Flow</a>
+          <a href="#handover">Handover</a>
           <a href="#algorithms">Algorithms</a>
+          <a href="#validation">Validation</a>
           <label class="theme-switch" for="theme-toggle">Toggle Light / Dark</label>
         </div>
       </div>
@@ -206,6 +208,77 @@
             </ul>
           </article>
         </div>
+      </section>
+
+      <section class="section" id="handover">
+        <div class="section-header">
+          <div>
+            <p class="kicker">Engineering Handover</p>
+            <h3>What a new joiner should understand first</h3>
+          </div>
+          <p>This section mirrors the onboarding markdown guide so the HTML document also works as a practical engineering handover artifact.</p>
+        </div>
+        <div class="card-grid">
+          <article class="card">
+            <h4>Runtime Path</h4>
+            <p>The live system currently runs in this order: project creation, file inspection, mapping, optional equipment ID cleaning, optional derived columns, supplementary matching, AST classification, and artifact-backed run persistence.</p>
+            <ul>
+              <li>Upload inspection can preview cleaning and derived audits before final save.</li>
+              <li>Every dataset is rebuilt through the same mapping, derived, and cleaning pipeline during classification.</li>
+              <li>The canonical dataset stays as the left-hand anchor during matching.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h4>Stored Entities</h4>
+            <p>The main persisted records are intentionally small and auditable while heavier outputs are stored as files.</p>
+            <ul>
+              <li><code>Project</code>: workspace boundary</li>
+              <li><code>Dataset</code>: source file plus mapping, derived, matching, and cleaning config</li>
+              <li><code>RuleSet</code>: versioned AST JSON</li>
+              <li><code>ClassificationRun</code>: run summary metadata</li>
+              <li><code>ClassificationRunArtifact</code>: rows, explanations, and export files</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h4>Main API Surface</h4>
+            <p>The frontend mostly depends on a small set of high-value backend operations.</p>
+            <ul>
+              <li><code>POST /api/datasets/inspect-file</code></li>
+              <li><code>POST /api/projects/{project_id}/datasets</code></li>
+              <li><code>POST /api/projects/{project_id}/rulesets</code></li>
+              <li><code>POST /api/projects/{project_id}/classify</code></li>
+              <li><code>GET /api/classification-runs/{run_id}/rows</code></li>
+              <li><code>GET /api/classification-runs/{run_id}/export</code></li>
+            </ul>
+          </article>
+        </div>
+        <details>
+          <summary>Recommended reading order for engineers</summary>
+          <div>
+            <p>Start with the dashboard and workspace pages, then move into the upload form and rule builder before tracing the backend routes and dataframe engine.</p>
+            <ul>
+              <li><code>frontend/src/pages/ProjectPage.tsx</code></li>
+              <li><code>frontend/src/components/DatasetUploadForm.tsx</code></li>
+              <li><code>frontend/src/components/RuleBuilder.tsx</code></li>
+              <li><code>backend/app/api/routes.py</code></li>
+              <li><code>backend/app/services/dataframe_engine.py</code></li>
+              <li><code>backend/app/services/equipment_id_cleaning.py</code></li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>Current constraints and boundaries</summary>
+          <div>
+            <p>The current platform is already useful, but it helps reviewers and maintainers to know where the boundaries still are.</p>
+            <ul>
+              <li>Each project currently supports one canonical dataset.</li>
+              <li>The UI is centered on the latest ruleset rather than a full historical comparison workflow.</li>
+              <li>Equipment ID cleaning is deterministic and rule-based, not trainable or probabilistic.</li>
+              <li>Matching supports exact, normalized, and fuzzy strategies.</li>
+              <li>The rule builder is a visual editor backed by AST state, not a graph-native storage model.</li>
+            </ul>
+          </div>
+        </details>
       </section>
 
       <section class="section" id="algorithms">
@@ -442,7 +515,7 @@
         <p class="footer-note">Open this file locally in a browser to use the theme toggle, tabbed sections, and expandable explanation cards.</p>
       </section>
 
-      <section class="section">
+      <section class="section" id="validation">
         <div class="section-header">
           <div>
             <p class="kicker">4. External Validation</p>

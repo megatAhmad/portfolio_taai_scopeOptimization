@@ -102,12 +102,12 @@ export function ProjectPage() {
   }
 
   if (!detail) {
-    return <div className="rounded-[2rem] bg-white/80 p-6 shadow-panel">Loading project workspace...</div>
+    return <div className="theme-panel rounded-[2rem] bg-white/80 p-6 shadow-panel transition-colors duration-300">Loading project workspace...</div>
   }
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+      <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.25em] text-ocean">Project workspace</p>
@@ -124,7 +124,7 @@ export function ProjectPage() {
 
       <div className="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
         <DatasetUploadForm projectId={projectId} datasets={detail.datasets} onUpload={handleUpload} />
-        <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+        <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
           <div className="flex items-center gap-3">
             <Sparkles size={18} className="text-ember" />
             <div>
@@ -135,7 +135,7 @@ export function ProjectPage() {
           <div className="mt-5 space-y-4">
             {detail.datasets.length === 0 && <p className="text-sm text-slate-500">No datasets uploaded yet.</p>}
             {detail.datasets.map((dataset) => (
-              <article key={dataset.id} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <article key={dataset.id} className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap gap-2">
@@ -153,11 +153,11 @@ export function ProjectPage() {
                   </button>
                 </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="theme-card rounded-2xl border border-slate-200 bg-white p-3 transition-colors duration-300">
                     <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Mapped fields</div>
                     <div className="flex flex-wrap gap-2">{dataset.mapping_rules.filter((entry) => entry.include).map((entry) => <span key={entry.source} className="rounded-full bg-mist px-3 py-2 text-xs font-semibold text-ink">{entry.source} → {entry.target}</span>)}</div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="theme-card rounded-2xl border border-slate-200 bg-white p-3 transition-colors duration-300">
                     <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Column profile</div>
                     <div className="space-y-2 text-sm text-slate-600">{dataset.schema_profile.slice(0, 4).map((profile) => <div key={profile.source}>{profile.source}: {profile.inferred_type} • {Math.round(profile.null_ratio * 100)}% null</div>)}</div>
                   </div>

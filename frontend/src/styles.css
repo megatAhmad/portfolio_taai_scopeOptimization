@@ -8,14 +8,24 @@
   font-family: 'Manrope', sans-serif;
 }
 
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: #102a43;
   background:
     radial-gradient(circle at top left, rgba(255, 247, 237, 0.95), transparent 28%),
     radial-gradient(circle at top right, rgba(191, 219, 254, 0.8), transparent 30%),
     #eef6ff;
+  transition: background 220ms ease, color 220ms ease;
 }
 
 * {
@@ -27,4 +37,171 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+html.dark body {
+  color: #e2e8f0;
+  background:
+    radial-gradient(circle at top left, rgba(180, 83, 9, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.22), transparent 28%),
+    linear-gradient(180deg, #020617 0%, #0f172a 55%, #111827 100%);
+}
+
+.theme-app-shell {
+  transition: background-color 220ms ease, color 220ms ease;
+}
+
+html.dark .theme-app-shell {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+}
+
+html.dark .theme-panel,
+html.dark .theme-modal {
+  background: rgba(15, 23, 42, 0.82) !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  box-shadow: 0 24px 60px -32px rgba(2, 6, 23, 0.75);
+}
+
+html.dark .theme-subpanel,
+html.dark .theme-card,
+html.dark .theme-table-wrap,
+html.dark .theme-canvas,
+html.dark .theme-flow-node {
+  background: #111827 !important;
+  border-color: #334155 !important;
+}
+
+html.dark .theme-canvas {
+  background:
+    radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(17, 24, 39, 0.94)) !important;
+}
+
+html.dark .theme-app-shell .text-ink {
+  color: #f8fafc !important;
+}
+
+html.dark .theme-app-shell .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .theme-app-shell .text-slate-600,
+html.dark .theme-app-shell .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .theme-app-shell .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.dark .theme-app-shell .bg-white {
+  background-color: #0f172a !important;
+}
+
+html.dark .theme-app-shell .bg-white\/80 {
+  background-color: rgba(15, 23, 42, 0.82) !important;
+}
+
+html.dark .theme-app-shell .bg-slate-50,
+html.dark .theme-app-shell .bg-slate-50\/50 {
+  background-color: #111827 !important;
+}
+
+html.dark .theme-app-shell .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+html.dark .theme-app-shell .bg-slate-950 {
+  background-color: #020617 !important;
+}
+
+html.dark .theme-app-shell .bg-mist {
+  background-color: rgba(29, 78, 216, 0.18) !important;
+}
+
+html.dark .theme-app-shell .bg-sand {
+  background-color: rgba(194, 65, 12, 0.14) !important;
+}
+
+html.dark .theme-app-shell .border-white\/70,
+html.dark .theme-app-shell .border-slate-300,
+html.dark .theme-app-shell .border-slate-200,
+html.dark .theme-app-shell .border-slate-100 {
+  border-color: #334155 !important;
+}
+
+html.dark .theme-app-shell .from-white {
+  --tw-gradient-from: #0f172a var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(15, 23, 42, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.dark .theme-app-shell .to-mist {
+  --tw-gradient-to: rgba(29, 78, 216, 0.18) var(--tw-gradient-to-position) !important;
+}
+
+html.dark .theme-app-shell input,
+html.dark .theme-app-shell select,
+html.dark .theme-app-shell textarea {
+  color: #e2e8f0;
+  background-color: #0b1220;
+  border-color: #334155;
+}
+
+html.dark .theme-app-shell input::placeholder,
+html.dark .theme-app-shell textarea::placeholder {
+  color: #64748b;
+}
+
+html.dark .theme-app-shell input:disabled,
+html.dark .theme-app-shell select:disabled,
+html.dark .theme-app-shell textarea:disabled {
+  background-color: #172033;
+  color: #64748b;
+}
+
+html.dark .theme-app-shell input[type='checkbox'],
+html.dark .theme-app-shell input[type='radio'] {
+  accent-color: #60a5fa;
+}
+
+html.dark .theme-app-shell input[type='file'] {
+  background-color: #0f172a;
+}
+
+html.dark .theme-app-shell table {
+  color: #e2e8f0;
+}
+
+html.dark .theme-app-shell thead {
+  background-color: #1e293b !important;
+}
+
+html.dark .theme-app-shell tr {
+  border-color: #334155 !important;
+}
+
+html.dark .theme-app-shell pre {
+  color: #cbd5e1;
+}
+
+html.dark .react-flow__background path {
+  stroke: rgba(148, 163, 184, 0.14);
+}
+
+html.dark .react-flow__controls-button {
+  background: #0f172a;
+  border-bottom-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .react-flow__controls {
+  border: 1px solid #334155;
+  box-shadow: 0 12px 32px rgba(2, 6, 23, 0.45);
+}
+
+html.dark .react-flow__minimap {
+  background-color: rgba(15, 23, 42, 0.88);
 }

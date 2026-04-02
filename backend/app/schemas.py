@@ -149,6 +149,7 @@ class RuleConditionNode(BaseModel):
 class RuleGroupNode(BaseModel):
     id: str
     type: Literal['group']
+    name: str | None = None
     combinator: Literal['AND', 'OR'] = 'AND'
     children: list['RuleNode'] = Field(default_factory=list)
 

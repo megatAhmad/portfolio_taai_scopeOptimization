@@ -50,7 +50,7 @@ function createCondition(field: string): RuleConditionNode {
 }
 
 function createGroup(): RuleGroupNode {
-  return { id: createId(), type: 'group', combinator: 'AND', children: [] }
+  return { id: createId(), type: 'group', name: '', combinator: 'AND', children: [] }
 }
 
 function defaultRuleAst(): RuleAst {
@@ -97,6 +97,7 @@ function normalizeRuleNode(value: unknown, columns: string[]): RuleNode {
     return {
       id: typeof value.id === 'string' && value.id ? value.id : createId(),
       type: 'group',
+      name: typeof value.name === 'string' ? value.name : '',
       combinator: value.combinator === 'OR' ? 'OR' : 'AND',
       children: value.children.map((child) => normalizeRuleNode(child, columns)),
     }
@@ -127,7 +128,8 @@ function summarizeNode(node: RuleNode): string {
     const value = node.value ? ` ${node.value}` : ''
     return `${node.field} ${node.operator}${value}${second}`
   }
-  return `${node.combinator} group with ${node.children.length} item${node.children.length === 1 ? '' : 's'}`
+  const base = `${node.combinator} group with ${node.children.length} item${node.children.length === 1 ? '' : 's'}`
+  return node.name ? `${node.name} • ${base}` : base
 }
 
 function mutateTree(root: RuleGroupNode, targetId: string, updater: (node: RuleGroupNode) => RuleGroupNode): RuleGroupNode {
@@ -182,7 +184,7 @@ function BaseFlowNode({
 }: NodeProps<FlowNodeData> & { chipLabel: string }) {
   return (
     <div
-      className={`min-w-[210px] max-w-[240px] rounded-[1.35rem] border bg-white px-4 py-3 shadow-sm transition ${
+      className={`theme-flow-node min-w-[210px] max-w-[240px] rounded-[1.35rem] border bg-white px-4 py-3 shadow-sm transition ${
         data.selected ? 'border-ember shadow-lg shadow-ember/15' : 'border-slate-200'
       }`}
     >
@@ -238,7 +240,7 @@ function buildFlowLayout(rules: RuleAst, selectedNodeId: string | null): { nodes
     const label = options.isRoot
       ? options.rootLabel
       : node.type === 'group'
-        ? `${node.combinator} group`
+        ? node.name || `${node.combinator} group`
         : node.field
     const accentClass = options.rootKey === 'must_have'
       ? kind === 'condition'
@@ -363,7 +365,7 @@ function FlowchartCanvas({
   const flow = useMemo(() => buildFlowLayout(rules, selectedNodeId), [rules, selectedNodeId])
 
   return (
-    <div className="h-[42rem] overflow-hidden rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(239,246,255,0.92))]">
+    <div className="theme-canvas h-[42rem] overflow-hidden rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(239,246,255,0.92))] transition-colors duration-300">
       <ReactFlow
         nodes={flow.nodes}
         edges={flow.edges}
@@ -388,7 +390,7 @@ function FlowchartCanvas({
 
 function InspectorSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-[1.4rem] border border-slate-200 bg-white p-4">
+    <div className="theme-subpanel rounded-[1.4rem] border border-slate-200 bg-white p-4 transition-colors duration-300">
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{title}</div>
       <div className="mt-3 space-y-3">{children}</div>
     </div>
@@ -504,7 +506,7 @@ export function RuleBuilder({
     }`
 
   return (
-    <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+    <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-ocean">
@@ -559,6 +561,14 @@ export function RuleBuilder({
 
                   {selectedNode.node.type === 'group' ? (
                     <>
+                      <input
+                        value={selectedNode.node.name ?? ''}
+                        onChange={(event) =>
+                          updateSelectedGroup((group) => ({ ...group, name: event.target.value }))
+                        }
+                        placeholder={selectedNode.isRoot ? 'Optional root group name' : 'Group name'}
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                      />
                       <select
                         value={selectedNode.node.combinator}
                         onChange={(event) =>

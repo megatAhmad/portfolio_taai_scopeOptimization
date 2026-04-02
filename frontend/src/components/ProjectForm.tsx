@@ -18,7 +18,7 @@ export function ProjectForm({ onCreate }: { onCreate: (values: { name: string; d
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+    <form onSubmit={handleSubmit} className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl text-ink">Start a Project</h2>

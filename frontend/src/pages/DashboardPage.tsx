@@ -39,7 +39,7 @@ export function DashboardPage() {
   return (
     <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
       <ProjectForm onCreate={handleCreate} />
-      <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+      <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display text-2xl text-ink">Project Dashboard</h2>
@@ -50,7 +50,7 @@ export function DashboardPage() {
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           {projects.length === 0 && <p className="text-sm text-slate-500">No projects yet. Create one to start the shutdown prioritization flow.</p>}
           {projects.map((project) => (
-            <article key={project.id} className="rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white to-mist p-5">
+            <article key={project.id} className="theme-card rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-white to-mist p-5 transition-colors duration-300">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="font-display text-xl text-ink">{project.name}</h3>

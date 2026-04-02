@@ -59,7 +59,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
 
   if (!result) {
     return (
-      <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+      <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
         <h2 className="font-display text-2xl text-ink">Classification Output</h2>
         <p className="mt-2 text-sm text-slate-600">Run a classification to generate the decision matrix, evidence trace, and exportable results.</p>
       </section>
@@ -67,7 +67,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
   }
 
   return (
-    <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+    <section className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="font-display text-2xl text-ink">Classification Output</h2>
@@ -91,7 +91,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
         </div>
       </div>
 
-      <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+      <div className="theme-subpanel mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-semibold text-ink">Visible columns</p>
@@ -138,7 +138,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.65fr)] 2xl:grid-cols-[minmax(0,1.9fr)_minmax(340px,0.55fr)]">
-        <div className="overflow-x-auto rounded-[1.5rem] border border-slate-200">
+        <div className="theme-table-wrap overflow-x-auto rounded-[1.5rem] border border-slate-200 transition-colors duration-300">
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-slate-600">
               <tr>
@@ -163,7 +163,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
           </table>
         </div>
 
-        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 xl:sticky xl:top-6 xl:max-h-[70vh] xl:overflow-y-auto">
+        <div className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300 xl:sticky xl:top-6 xl:max-h-[70vh] xl:overflow-y-auto">
           {explanation ? (
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-ocean"><GaugeCircle size={16} /> Evidence Trace</div>
@@ -180,7 +180,7 @@ export function ResultsPanel({ result, loading, onPageChange }: { result: Classi
               {evidenceKeys.length > 0 && selectedRow && (
                 <div className="mt-4 space-y-3">
                   {evidenceKeys.map((key) => (
-                    <div key={key} className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div key={key} className="theme-card rounded-2xl border border-slate-200 bg-white p-3 transition-colors duration-300">
                       <div className="text-sm font-semibold text-ink">{key.replace('__evidence_rows', '')} evidence</div>
                       <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-slate-600">{formatValue(selectedRow[key])}</pre>
                     </div>

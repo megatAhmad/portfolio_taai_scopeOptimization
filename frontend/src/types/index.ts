@@ -127,6 +127,7 @@ export type RuleConditionNode = {
 export type RuleGroupNode = {
   id: string
   type: 'group'
+  name?: string
   combinator: 'AND' | 'OR'
   children: RuleNode[]
 }

@@ -346,7 +346,7 @@ export function DatasetUploadForm({
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur">
+      <form onSubmit={handleSubmit} className="theme-panel rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur transition-colors duration-300">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="font-display text-2xl text-ink">Guided Dataset Intake</h2>
@@ -432,7 +432,7 @@ export function DatasetUploadForm({
         )}
 
         {workbookOnly && (
-          <section className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+          <section className="theme-subpanel mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
             <h3 className="font-display text-lg text-ink">Workbook Detected</h3>
             <p className="mt-2 text-sm text-slate-600">Preview, mapping, and upload stay blocked until you explicitly choose one sheet.</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -454,7 +454,7 @@ export function DatasetUploadForm({
 
         {readyForPreview && inspection && (
           <div className="mt-6 space-y-6">
-            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h3 className="font-display text-lg text-ink">Inspection Summary</h3>
@@ -465,7 +465,7 @@ export function DatasetUploadForm({
                   <span className="rounded-full bg-white px-3 py-2">{inspection.columns.length} columns</span>
                 </div>
               </div>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <div className="theme-table-wrap mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white transition-colors duration-300">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-100 text-left text-slate-600">
                     <tr>
@@ -486,7 +486,7 @@ export function DatasetUploadForm({
               )}
             </section>
 
-            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
               <div className="flex items-center gap-3">
                 <TableProperties size={18} className="text-ocean" />
                 <div>
@@ -494,7 +494,7 @@ export function DatasetUploadForm({
                   <p className="text-sm text-slate-600">Map source columns to canonical-friendly names without writing JSON.</p>
                 </div>
               </div>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <div className="theme-table-wrap mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white transition-colors duration-300">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-100 text-left text-slate-600">
                     <tr>
@@ -520,7 +520,7 @@ export function DatasetUploadForm({
               </div>
             </section>
 
-            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
               <div className="flex items-center gap-3">
                 <FileSpreadsheet size={18} className="text-ink" />
                 <div>
@@ -594,7 +594,7 @@ export function DatasetUploadForm({
               </div>
             </section>
 
-            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
               <div className="flex items-center gap-3">
                 <TableProperties size={18} className="text-pine" />
                 <div>
@@ -606,7 +606,7 @@ export function DatasetUploadForm({
                 <span className="rounded-full bg-white px-3 py-2">{inspection.transformed_row_count || inspection.preview_rows.length} preview rows</span>
                 <span className="rounded-full bg-white px-3 py-2">{inspection.changed_row_count} changed source IDs</span>
               </div>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <div className="theme-table-wrap mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white transition-colors duration-300">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-100 text-left text-slate-600">
                     <tr>
@@ -635,7 +635,7 @@ export function DatasetUploadForm({
             </section>
 
             {(expandedAuditRows.length > 0 || changedAuditRows.length > 0) && (
-              <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
                 <div className="flex items-center gap-3">
                   <WandSparkles size={18} className="text-ember" />
                   <div>
@@ -680,7 +680,7 @@ export function DatasetUploadForm({
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <div className="theme-table-wrap mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white transition-colors duration-300">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-100 text-left text-slate-600">
                       <tr>
@@ -711,7 +711,7 @@ export function DatasetUploadForm({
               </section>
             )}
 
-            <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
               <div className="flex items-center gap-3">
                 <WandSparkles size={18} className="text-ember" />
                 <div>
@@ -733,7 +733,7 @@ export function DatasetUploadForm({
               <div className="mt-4 space-y-4">
                 {derivedColumns.length === 0 && <p className="text-sm text-slate-500">No derived columns configured yet.</p>}
                 {derivedColumns.map((derived, derivedIndex) => (
-                  <div key={derivedIndex} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div key={derivedIndex} className="theme-card rounded-2xl border border-slate-200 bg-white p-4 transition-colors duration-300">
                     <div className="grid gap-3 md:grid-cols-2">
                       <input value={derived.name} onChange={(event) => {
                         const next = [...derivedColumns]
@@ -803,7 +803,7 @@ export function DatasetUploadForm({
             </section>
 
             {derivedAuditRows.length > 0 && (
-              <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
                 <div className="flex items-center gap-3">
                   <WandSparkles size={18} className="text-ocean" />
                   <div>
@@ -848,7 +848,7 @@ export function DatasetUploadForm({
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <div className="theme-table-wrap mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white transition-colors duration-300">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-100 text-left text-slate-600">
                       <tr>
@@ -897,7 +897,7 @@ export function DatasetUploadForm({
             )}
 
             {role === 'supplementary' && (
-              <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <section className="theme-subpanel rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition-colors duration-300">
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet size={18} className="text-pine" />
                   <div>
@@ -932,7 +932,7 @@ export function DatasetUploadForm({
 
       {sheetModalOpen && file && inspection?.file_type === 'excel' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-6 shadow-panel">
+          <div className="theme-modal w-full max-w-2xl rounded-[2rem] bg-white p-6 shadow-panel transition-colors duration-300">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text-ocean">Excel sheet required</p>

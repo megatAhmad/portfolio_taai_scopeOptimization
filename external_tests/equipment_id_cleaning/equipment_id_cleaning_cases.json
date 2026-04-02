@@ -135,6 +135,36 @@
     }
   },
   {
+    "id": "last-hyphen-inheritance-001",
+    "type": "transform",
+    "description": "Mixed shorthand after slash inherits from the segment before the last hyphen",
+    "input": "JB-DBP-TF1-1/1R2/08",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "JB-DBP-TF1-1/1R2/08",
+      "final_ids": ["JB-DBP-TF1-1", "JB-DBP-TF1-1R2", "JB-DBP-TF1-08"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
+    "id": "alpha-tail-segment-replacement-001",
+    "type": "transform",
+    "description": "Alternatives can replace an alpha-only final segment while preserving the shared prefix",
+    "input": "1-BNG-TH3-N/1R4/09-1",
+    "config": {
+      "enabled": true
+    },
+    "expected": {
+      "intermediate": "1-BNG-TH3-N/1R4/09-1",
+      "final_ids": ["1-BNG-TH3-N", "1-BNG-TH3-1R4", "1-BNG-TH3-09-1"],
+      "change_types": ["expanded_from_compound"],
+      "parse_status": "expanded"
+    }
+  },
+  {
     "id": "whitespace-end-001",
     "type": "transform",
     "description": "Whitespace is removed at the end",
@@ -249,6 +279,54 @@
       "expansion_counts": [2, 2],
       "copied_columns": {
         "system": ["lighting", "lighting"]
+      }
+    }
+  },
+  {
+    "id": "dataframe-last-hyphen-inheritance-001",
+    "type": "dataframe",
+    "description": "Mixed shorthand siblings inherit the prefix up to the last hyphen",
+    "equipment_column": "equipment_id",
+    "config": {
+      "enabled": true
+    },
+    "rows": [
+      {
+        "equipment_id": "JB-DBP-TF1-1/1R2/08",
+        "system": "draft"
+      }
+    ],
+    "expected": {
+      "row_count": 3,
+      "final_ids": ["JB-DBP-TF1-1", "JB-DBP-TF1-1R2", "JB-DBP-TF1-08"],
+      "source_row_indexes": [0, 0, 0],
+      "expansion_counts": [3, 3, 3],
+      "copied_columns": {
+        "system": ["draft", "draft", "draft"]
+      }
+    }
+  },
+  {
+    "id": "dataframe-alpha-tail-segment-replacement-001",
+    "type": "dataframe",
+    "description": "Alternatives replacing an alpha-only tail still duplicate the row correctly",
+    "equipment_column": "equipment_id",
+    "config": {
+      "enabled": true
+    },
+    "rows": [
+      {
+        "equipment_id": "1-BNG-TH3-N/1R4/09-1",
+        "system": "vent"
+      }
+    ],
+    "expected": {
+      "row_count": 3,
+      "final_ids": ["1-BNG-TH3-N", "1-BNG-TH3-1R4", "1-BNG-TH3-09-1"],
+      "source_row_indexes": [0, 0, 0],
+      "expansion_counts": [3, 3, 3],
+      "copied_columns": {
+        "system": ["vent", "vent", "vent"]
       }
     }
   }

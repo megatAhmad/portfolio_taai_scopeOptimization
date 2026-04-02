@@ -107,6 +107,48 @@ def _infer_segment_replacement(base: str, token: str) -> str | None:
     return prefix + stripped
 
 
+def _inherit_after_last_hyphen(base: str, token: str) -> str | None:
+    stripped = token.strip()
+    if not stripped or any(separator in stripped for separator in '-_/'):
+        return None
+
+    hyphen_index = base.rfind('-')
+    if hyphen_index < 0:
+        return None
+
+    prefix = base[:hyphen_index + 1]
+    last_segment = base[hyphen_index + 1:]
+    if not prefix or not last_segment:
+        return None
+    if not re.search(r'\d', stripped) or not re.search(r'\d', last_segment):
+        return None
+    if not stripped[0].isdigit() or not last_segment[0].isdigit():
+        return None
+
+    return prefix + stripped
+
+
+def _replace_last_segment(base: str, token: str) -> str | None:
+    stripped = token.strip()
+    if not stripped or any(separator in stripped for separator in '/&,'):
+        return None
+
+    hyphen_index = base.rfind('-')
+    if hyphen_index < 0:
+        return None
+
+    prefix = base[:hyphen_index + 1]
+    last_segment = base[hyphen_index + 1:]
+    if not prefix or not last_segment:
+        return None
+    if not re.fullmatch(r'[A-Za-z]+', last_segment):
+        return None
+    if not re.search(r'\d', stripped):
+        return None
+
+    return prefix + stripped
+
+
 def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
     if '&' not in value and '/' not in value and ',' not in value:
         return [value], False, False, []
@@ -132,6 +174,16 @@ def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
         segment_replacement = _infer_segment_replacement(tokens[0], token)
         if segment_replacement:
             expanded.append(segment_replacement)
+            continue
+
+        inherited_after_hyphen = _inherit_after_last_hyphen(tokens[0], token)
+        if inherited_after_hyphen:
+            expanded.append(inherited_after_hyphen)
+            continue
+
+        replaced_last_segment = _replace_last_segment(tokens[0], token)
+        if replaced_last_segment:
+            expanded.append(replaced_last_segment)
             continue
 
         compact_base = re.sub(r'\s+', '', tokens[0])

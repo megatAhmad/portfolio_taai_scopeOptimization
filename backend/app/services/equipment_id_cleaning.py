@@ -149,6 +149,31 @@ def _replace_last_segment(base: str, token: str) -> str | None:
     return prefix + stripped
 
 
+def _get_shared_numeric_suffix(tokens: list[str]) -> str | None:
+    if len(tokens) <= 1:
+        return None
+
+    base = tokens[0]
+    hyphen_index = base.rfind('-')
+    if hyphen_index < 0:
+        return None
+
+    base_last_segment = base[hyphen_index + 1:]
+    if not re.fullmatch(r'[A-Za-z]+', base_last_segment):
+        return None
+
+    suffixes = {
+        match.group(2)
+        for token in tokens[1:]
+        for match in [re.fullmatch(r'([^-]+)-(\d+)', token)]
+        if match
+    }
+    if len(suffixes) != 1:
+        return None
+
+    return next(iter(suffixes))
+
+
 def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
     if '&' not in value and '/' not in value and ',' not in value:
         return [value], False, False, []
@@ -156,42 +181,47 @@ def expand_compound_ids(value: str) -> tuple[list[str], bool, bool, list[str]]:
     tokens = [item.strip() for item in re.split(r'[&/,]', value) if item.strip()]
     if len(tokens) <= 1:
         return [value], False, False, []
+    shared_numeric_suffix = _get_shared_numeric_suffix(tokens)
 
-    expanded = [tokens[0]]
+    expanded = [f'{tokens[0]}-{shared_numeric_suffix}' if shared_numeric_suffix else tokens[0]]
     ambiguous = False
     notes: list[str] = []
 
     for token in tokens[1:]:
-        if re.fullmatch(r'[A-Za-z]+', token) and len(token) > 1:
-            notes.append(f'Ignored expansion "{token}" because it contains no digits')
+        candidate = token
+        if shared_numeric_suffix and '-' not in token and not token.endswith(f'-{shared_numeric_suffix}'):
+            candidate = f'{token}-{shared_numeric_suffix}'
+
+        if re.fullmatch(r'[A-Za-z]+', candidate) and len(candidate) > 1:
+            notes.append(f'Ignored expansion "{candidate}" because it contains no digits')
             continue
 
-        inherited = _infer_shorthand(tokens[0], token)
+        inherited = _infer_shorthand(tokens[0], candidate)
         if inherited:
             expanded.append(inherited)
             continue
 
-        segment_replacement = _infer_segment_replacement(tokens[0], token)
+        segment_replacement = _infer_segment_replacement(tokens[0], candidate)
         if segment_replacement:
             expanded.append(segment_replacement)
             continue
 
-        inherited_after_hyphen = _inherit_after_last_hyphen(tokens[0], token)
+        inherited_after_hyphen = _inherit_after_last_hyphen(tokens[0], candidate)
         if inherited_after_hyphen:
             expanded.append(inherited_after_hyphen)
             continue
 
-        replaced_last_segment = _replace_last_segment(tokens[0], token)
+        replaced_last_segment = _replace_last_segment(tokens[0], candidate)
         if replaced_last_segment:
             expanded.append(replaced_last_segment)
             continue
 
         compact_base = re.sub(r'\s+', '', tokens[0])
-        compact_token = re.sub(r'\s+', '', token)
-        if len(compact_token) < len(compact_base) and not any(separator in token for separator in '-_/') and not re.search(r'\d', token):
+        compact_token = re.sub(r'\s+', '', candidate)
+        if len(compact_token) < len(compact_base) and not any(separator in candidate for separator in '-_/') and not re.search(r'\d', candidate):
             ambiguous = True
-            notes.append(f'Ambiguous shorthand token "{token}" kept as standalone ID')
-        expanded.append(token)
+            notes.append(f'Ambiguous shorthand token "{candidate}" kept as standalone ID')
+        expanded.append(candidate)
 
     return expanded, True, ambiguous, notes
 

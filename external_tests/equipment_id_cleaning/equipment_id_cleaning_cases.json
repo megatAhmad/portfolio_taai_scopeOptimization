@@ -159,7 +159,7 @@
     },
     "expected": {
       "intermediate": "1-BNG-TH3-N/1R4/09-1",
-      "final_ids": ["1-BNG-TH3-N", "1-BNG-TH3-1R4", "1-BNG-TH3-09-1"],
+      "final_ids": ["1-BNG-TH3-N-1", "1-BNG-TH3-1R4-1", "1-BNG-TH3-09-1"],
       "change_types": ["expanded_from_compound"],
       "parse_status": "expanded"
     }
@@ -322,7 +322,7 @@
     ],
     "expected": {
       "row_count": 3,
-      "final_ids": ["1-BNG-TH3-N", "1-BNG-TH3-1R4", "1-BNG-TH3-09-1"],
+      "final_ids": ["1-BNG-TH3-N-1", "1-BNG-TH3-1R4-1", "1-BNG-TH3-09-1"],
       "source_row_indexes": [0, 0, 0],
       "expansion_counts": [3, 3, 3],
       "copied_columns": {

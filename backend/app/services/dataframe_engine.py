@@ -293,7 +293,7 @@ def apply_derived_columns_with_audit(df: pd.DataFrame, derived_columns: list[dic
                         column=condition['column'],
                         operator=condition['operator'],
                         data_type=condition['data_type'],
-                        expected_value=condition.get('value'),
+                        expected_value=get_condition_list_values(condition) if condition['operator'] in {'CONTAINS ANY', 'CONTAINS ALL', 'IN'} else condition.get('value'),
                         secondary_value=condition.get('secondary_value'),
                         actual_value=actual_value,
                         result=outcome,

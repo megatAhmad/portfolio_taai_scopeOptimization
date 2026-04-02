@@ -70,6 +70,7 @@ class DerivedCondition(BaseModel):
     operator: str
     value: Any | None = None
     secondary_value: Any | None = None
+    values: list[Any] | None = None
 
 
 class DerivedColumnDefinition(BaseModel):

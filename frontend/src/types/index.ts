@@ -50,6 +50,7 @@ export type DerivedCondition = {
   operator: string
   value?: string
   secondary_value?: string
+  values?: string[]
 }
 
 export type DerivedColumn = {

@@ -5,6 +5,7 @@ import type { Dataset, DatasetInspection, DerivedColumn, EquipmentIdCleaningConf
 
 const textOperators = ['=', '!=', 'CONTAINS', 'CONTAINS ANY', 'CONTAINS ALL', 'IN']
 const rangeOperators = ['<', '>', '<=', '>=', 'BETWEEN']
+type ConditionInputMode = 'single' | 'between' | 'multi_list'
 
 function defaultMatchingConfig(): MatchingConfig {
   return { strategy: 'normalized', fuzzy_threshold: 0.82 }
@@ -35,6 +36,116 @@ function formatAuditValue(value: unknown) {
     return JSON.stringify(value)
   }
   return String(value)
+}
+
+function getConditionInputMode(operator: string): ConditionInputMode {
+  if (operator === 'BETWEEN') return 'between'
+  if (operator === 'CONTAINS ANY' || operator === 'CONTAINS ALL' || operator === 'IN') return 'multi_list'
+  return 'single'
+}
+
+function splitCommaValues(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeMultiValueList(values: string[]): string[] {
+  const next = values.map((item) => item ?? '')
+  return next.length ? next : ['']
+}
+
+function coerceDerivedConditionForOperator(condition: DerivedColumn['conditions'][number], operator: string): DerivedColumn['conditions'][number] {
+  const mode = getConditionInputMode(operator)
+  const seedValues = normalizeMultiValueList(
+    (condition.values && condition.values.length ? condition.values : splitCommaValues(condition.value ?? '')),
+  )
+
+  if (mode === 'multi_list') {
+    return {
+      ...condition,
+      operator,
+      value: seedValues[0] ?? '',
+      secondary_value: '',
+      values: seedValues,
+    }
+  }
+
+  if (mode === 'between') {
+    return {
+      ...condition,
+      operator,
+      value: condition.value || seedValues[0] || '',
+      secondary_value: condition.secondary_value || seedValues[1] || '',
+      values: undefined,
+    }
+  }
+
+  return {
+    ...condition,
+    operator,
+    value: condition.value || seedValues[0] || '',
+    secondary_value: '',
+    values: undefined,
+  }
+}
+
+function MultiValueEditor({
+  values,
+  onChange,
+}: {
+  values: string[]
+  onChange: (next: string[]) => void
+}) {
+  return (
+    <div className="space-y-3 md:col-span-2">
+      {values.map((value, index) => (
+        <div key={`${index}-${value}`} className="flex items-center gap-3">
+          <input
+            value={value}
+            onChange={(event) => {
+              const next = [...values]
+              next[index] = event.target.value
+              onChange(next)
+            }}
+            onBlur={(event) => {
+              const parts = splitCommaValues(event.target.value)
+              if (parts.length <= 1) return
+              const next = [...values]
+              next.splice(index, 1, ...parts)
+              onChange(normalizeMultiValueList(next))
+            }}
+            placeholder={`Value ${index + 1}`}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const next = values.filter((_, currentIndex) => currentIndex !== index)
+              onChange(normalizeMultiValueList(next))
+            }}
+            disabled={values.length === 1}
+            className="rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = [...values]
+              next.splice(index + 1, 0, '')
+              onChange(next)
+            }}
+            className="rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            +
+          </button>
+        </div>
+      ))}
+      <p className="text-xs leading-5 text-slate-500">Each row accepts one value. Paste comma-separated text to split it into multiple rows.</p>
+    </div>
+  )
 }
 
 export function DatasetUploadForm({
@@ -211,6 +322,8 @@ export function DatasetUploadForm({
             data_type: 'text',
             operator: 'CONTAINS',
             value: '',
+            secondary_value: '',
+            values: [''],
           },
         ],
       },
@@ -734,30 +847,33 @@ export function DatasetUploadForm({
                 {derivedColumns.length === 0 && <p className="text-sm text-slate-500">No derived columns configured yet.</p>}
                 {derivedColumns.map((derived, derivedIndex) => (
                   <div key={derivedIndex} className="theme-card rounded-2xl border border-slate-200 bg-white p-4 transition-colors duration-300">
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-4">
                       <input value={derived.name} onChange={(event) => {
                         const next = [...derivedColumns]
                         next[derivedIndex].name = event.target.value
                         setDerivedColumns(next)
-                      }} placeholder="Derived column name" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                      }} placeholder="Derived column name" className="rounded-2xl border border-slate-200 px-4 py-3 md:col-span-1" />
+                      <div className="grid gap-3 md:col-span-3 md:grid-cols-3">
                       <input value={derived.true_value} onChange={(event) => {
                         const next = [...derivedColumns]
                         next[derivedIndex].true_value = event.target.value
                         setDerivedColumns(next)
-                      }} placeholder="True value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                      }} placeholder="True value" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 placeholder:text-emerald-400" />
                       <input value={derived.false_value ?? ''} onChange={(event) => {
                         const next = [...derivedColumns]
                         next[derivedIndex].false_value = event.target.value
                         setDerivedColumns(next)
-                      }} placeholder="False value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                      }} placeholder="False value" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-950 placeholder:text-rose-400" />
                       <input value={derived.null_value ?? ''} onChange={(event) => {
                         const next = [...derivedColumns]
                         next[derivedIndex].null_value = event.target.value
                         setDerivedColumns(next)
-                      }} placeholder="Null value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                      }} placeholder="Unknown value" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 placeholder:text-amber-500" />
+                      </div>
                     </div>
                     {derived.conditions.map((condition, conditionIndex) => {
                       const operators = condition.data_type === 'text' ? textOperators : rangeOperators
+                      const conditionMode = getConditionInputMode(condition.operator)
                       return (
                         <div key={conditionIndex} className="mt-3 grid gap-3 md:grid-cols-5">
                           <select value={condition.column} onChange={(event) => {
@@ -769,8 +885,11 @@ export function DatasetUploadForm({
                           </select>
                           <select value={condition.data_type} onChange={(event) => {
                             const next = [...derivedColumns]
-                            next[derivedIndex].conditions[conditionIndex].data_type = event.target.value as 'text' | 'numeric' | 'date'
-                            next[derivedIndex].conditions[conditionIndex].operator = event.target.value === 'text' ? 'CONTAINS' : '>'
+                            const nextOperator = event.target.value === 'text' ? 'CONTAINS' : '>'
+                            next[derivedIndex].conditions[conditionIndex] = {
+                              ...coerceDerivedConditionForOperator(next[derivedIndex].conditions[conditionIndex], nextOperator),
+                              data_type: event.target.value as 'text' | 'numeric' | 'date',
+                            }
                             setDerivedColumns(next)
                           }} className="rounded-2xl border border-slate-200 px-4 py-3">
                             <option value="text">Text</option>
@@ -779,21 +898,47 @@ export function DatasetUploadForm({
                           </select>
                           <select value={condition.operator} onChange={(event) => {
                             const next = [...derivedColumns]
-                            next[derivedIndex].conditions[conditionIndex].operator = event.target.value
+                            next[derivedIndex].conditions[conditionIndex] = coerceDerivedConditionForOperator(next[derivedIndex].conditions[conditionIndex], event.target.value)
                             setDerivedColumns(next)
                           }} className="rounded-2xl border border-slate-200 px-4 py-3">
                             {operators.map((operator) => <option key={operator} value={operator}>{operator}</option>)}
                           </select>
-                          <input value={condition.value ?? ''} onChange={(event) => {
-                            const next = [...derivedColumns]
-                            next[derivedIndex].conditions[conditionIndex].value = event.target.value
-                            setDerivedColumns(next)
-                          }} placeholder="Value" className="rounded-2xl border border-slate-200 px-4 py-3" />
-                          <input value={condition.secondary_value ?? ''} onChange={(event) => {
-                            const next = [...derivedColumns]
-                            next[derivedIndex].conditions[conditionIndex].secondary_value = event.target.value
-                            setDerivedColumns(next)
-                          }} placeholder="Second value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                          {conditionMode === 'single' && (
+                            <input value={condition.value ?? ''} onChange={(event) => {
+                              const next = [...derivedColumns]
+                              next[derivedIndex].conditions[conditionIndex].value = event.target.value
+                              setDerivedColumns(next)
+                            }} placeholder="Value" className="rounded-2xl border border-slate-200 px-4 py-3 md:col-span-2" />
+                          )}
+                          {conditionMode === 'between' && (
+                            <>
+                              <input value={condition.value ?? ''} onChange={(event) => {
+                                const next = [...derivedColumns]
+                                next[derivedIndex].conditions[conditionIndex].value = event.target.value
+                                setDerivedColumns(next)
+                              }} placeholder="First value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                              <input value={condition.secondary_value ?? ''} onChange={(event) => {
+                                const next = [...derivedColumns]
+                                next[derivedIndex].conditions[conditionIndex].secondary_value = event.target.value
+                                setDerivedColumns(next)
+                              }} placeholder="Second value" className="rounded-2xl border border-slate-200 px-4 py-3" />
+                            </>
+                          )}
+                          {conditionMode === 'multi_list' && (
+                            <MultiValueEditor
+                              values={normalizeMultiValueList(condition.values ?? splitCommaValues(condition.value ?? ''))}
+                              onChange={(nextValues) => {
+                                const next = [...derivedColumns]
+                                next[derivedIndex].conditions[conditionIndex] = {
+                                  ...next[derivedIndex].conditions[conditionIndex],
+                                  values: normalizeMultiValueList(nextValues),
+                                  value: nextValues[0] ?? '',
+                                  secondary_value: '',
+                                }
+                                setDerivedColumns(next)
+                              }}
+                            />
+                          )}
                         </div>
                       )
                     })}

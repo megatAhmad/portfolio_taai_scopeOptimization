@@ -1,13 +1,37 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Dispatch, DragEvent, SetStateAction } from 'react'
-import { ArrowDown, ArrowUp, Braces, FolderTree, GitBranch, Plus, Trash2 } from 'lucide-react'
+import { Braces, FolderTree, GitBranch, Plus, Trash2 } from 'lucide-react'
+import ReactFlow, {
+  Background,
+  Controls,
+  Handle,
+  MarkerType,
+  MiniMap,
+  Position,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from 'reactflow'
+import 'reactflow/dist/style.css'
 import type { RuleAst, RuleConditionNode, RuleGroupNode, RuleNode, RuleSet } from '../types'
 
 const textOperators = ['=', '!=', 'CONTAINS', 'CONTAINS ANY', 'CONTAINS ALL', 'IN']
 const rangeOperators = ['<', '>', '<=', '>=', 'BETWEEN']
 
-type EditorMode = 'graph' | 'syntax' | 'split'
+type EditorMode = 'flowchart' | 'syntax' | 'split'
 type RootKey = 'must_have' | 'good_to_have'
+
+type FlowNodeData = {
+  kind: 'root' | 'group' | 'condition'
+  label: string
+  summary: string
+  accentClass: string
+  selected: boolean
+}
+
+type SelectedNodeState =
+  | { node: RuleGroupNode; rootKey: RootKey; isRoot: true; parentId: null }
+  | { node: RuleGroupNode; rootKey: RootKey; isRoot: false; parentId: string }
+  | { node: RuleConditionNode; rootKey: RootKey; isRoot: false; parentId: string }
 
 function createId() {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `node_${Math.random().toString(36).slice(2, 10)}`
@@ -97,6 +121,15 @@ function normalizeRuleAst(value: unknown, columns: string[]): RuleAst {
   }
 }
 
+function summarizeNode(node: RuleNode): string {
+  if (node.type === 'condition') {
+    const second = node.operator === 'BETWEEN' && node.secondary_value ? ` and ${node.secondary_value}` : ''
+    const value = node.value ? ` ${node.value}` : ''
+    return `${node.field} ${node.operator}${value}${second}`
+  }
+  return `${node.combinator} group with ${node.children.length} item${node.children.length === 1 ? '' : 's'}`
+}
+
 function mutateTree(root: RuleGroupNode, targetId: string, updater: (node: RuleGroupNode) => RuleGroupNode): RuleGroupNode {
   if (root.id === targetId) {
     return updater(root)
@@ -136,402 +169,228 @@ function removeNode(root: RuleGroupNode, targetId: string): RuleGroupNode {
   }
 }
 
-function moveNode(root: RuleGroupNode, parentId: string, index: number, direction: -1 | 1): RuleGroupNode {
-  return mutateTree(root, parentId, (node) => {
-    const next = [...node.children]
-    const swapIndex = index + direction
-    if (swapIndex < 0 || swapIndex >= next.length) {
-      return node
-    }
-    ;[next[index], next[swapIndex]] = [next[swapIndex], next[index]]
-    return { ...node, children: next }
-  })
+function countLeafSlots(node: RuleNode): number {
+  if (node.type === 'condition' || node.children.length === 0) {
+    return 1
+  }
+  return node.children.reduce((total, child) => total + countLeafSlots(child), 0)
 }
 
-function detachNode(root: RuleGroupNode, targetId: string): { tree: RuleGroupNode; removed: RuleNode | null } {
-  let removed: RuleNode | null = null
-
-  function walk(node: RuleGroupNode): RuleGroupNode {
-    const nextChildren: RuleNode[] = []
-    for (const child of node.children) {
-      if (child.id === targetId) {
-        removed = child
-        continue
-      }
-      nextChildren.push(child.type === 'group' ? walk(child) : child)
-    }
-    return { ...node, children: nextChildren }
-  }
-
-  return { tree: walk(root), removed }
-}
-
-function insertNode(root: RuleGroupNode, parentId: string, index: number, node: RuleNode): RuleGroupNode {
-  return mutateTree(root, parentId, (group) => {
-    const next = [...group.children]
-    const safeIndex = Math.max(0, Math.min(index, next.length))
-    next.splice(safeIndex, 0, node)
-    return { ...group, children: next }
-  })
-}
-
-function groupContainsId(group: RuleGroupNode, targetId: string): boolean {
-  for (const child of group.children) {
-    if (child.id === targetId) {
-      return true
-    }
-    if (child.type === 'group' && groupContainsId(child, targetId)) {
-      return true
-    }
-  }
-  return false
-}
-
-function moveAstNode(ast: RuleAst, dragId: string, targetRoot: RootKey, targetParentId: string, targetIndex: number): RuleAst {
-  let removed: RuleNode | null = null
-  let nextAst = ast
-
-  for (const rootKey of ['must_have', 'good_to_have'] as RootKey[]) {
-    const result = detachNode(nextAst[rootKey], dragId)
-    if (result.removed) {
-      removed = result.removed
-    }
-    nextAst = {
-      ...nextAst,
-      [rootKey]: result.tree,
-    }
-  }
-
-  if (!removed || removed.id === targetParentId) {
-    return ast
-  }
-
-  if (removed.type === 'group' && groupContainsId(removed, targetParentId)) {
-    return ast
-  }
-
-  return {
-    ...nextAst,
-    [targetRoot]: insertNode(nextAst[targetRoot], targetParentId, targetIndex, removed),
-  }
-}
-
-function summarizeNode(node: RuleNode): string {
-  if (node.type === 'condition') {
-    const second = node.operator === 'BETWEEN' && node.secondary_value ? ` and ${node.secondary_value}` : ''
-    const value = node.value ? ` ${node.value}` : ''
-    return `${node.field} ${node.operator}${value}${second}`
-  }
-  return `${node.combinator} group with ${node.children.length} item${node.children.length === 1 ? '' : 's'}`
-}
-
-function DropLane({
-  active,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}: {
-  active: boolean
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void
-  onDragLeave: () => void
-  onDrop: (event: DragEvent<HTMLDivElement>) => void
-}) {
+function BaseFlowNode({
+  data,
+  chipLabel,
+}: NodeProps<FlowNodeData> & { chipLabel: string }) {
   return (
     <div
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={`h-4 rounded-full border border-dashed transition ${active ? 'border-ember bg-ember/10' : 'border-slate-200 bg-transparent'}`}
-    />
-  )
-}
-
-function RuleNodeEditor({
-  node,
-  parentId,
-  index,
-  columns,
-  onTreeChange,
-  tree,
-  rootKey,
-  draggingNodeId,
-  activeDropKey,
-  onDragStart,
-  onDragEnd,
-  onDropTarget,
-  setActiveDropKey,
-}: {
-  node: RuleNode
-  parentId: string
-  index: number
-  columns: string[]
-  onTreeChange: (next: RuleGroupNode) => void
-  tree: RuleGroupNode
-  rootKey: RootKey
-  draggingNodeId: string | null
-  activeDropKey: string | null
-  onDragStart: (nodeId: string) => void
-  onDragEnd: () => void
-  onDropTarget: (targetRoot: RootKey, targetParentId: string, targetIndex: number) => void
-  setActiveDropKey: Dispatch<SetStateAction<string | null>>
-}) {
-  const dropKey = `${rootKey}:${parentId}:${index}`
-
-  if (node.type === 'condition') {
-    const operators = node.data_type === 'text' ? textOperators : rangeOperators
-    return (
-      <div
-        draggable
-        onDragStart={(event) => {
-          event.dataTransfer.effectAllowed = 'move'
-          event.dataTransfer.setData('text/plain', node.id)
-          onDragStart(node.id)
-        }}
-        onDragEnd={onDragEnd}
-        className={`rounded-2xl border bg-white p-4 shadow-sm transition ${draggingNodeId === node.id ? 'border-ember/60 opacity-60' : 'border-slate-200'}`}
-      >
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Condition</div>
-          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{summarizeNode(node)}</div>
-        </div>
-        <div className="mb-3 flex justify-end gap-2">
-          <button type="button" onClick={() => onTreeChange(moveNode(tree, parentId, index, -1))} className="rounded-full bg-slate-100 p-2 text-slate-500"><ArrowUp size={14} /></button>
-          <button type="button" onClick={() => onTreeChange(moveNode(tree, parentId, index, 1))} className="rounded-full bg-slate-100 p-2 text-slate-500"><ArrowDown size={14} /></button>
-          <button type="button" onClick={() => onTreeChange(removeNode(tree, node.id))} className="rounded-full bg-red-50 p-2 text-red-500"><Trash2 size={14} /></button>
-        </div>
-        <div className="grid gap-3 md:grid-cols-5">
-          <select value={node.field} onChange={(event) => onTreeChange(mutateNode(tree, node.id, (current) => ({ ...current, field: event.target.value } as RuleConditionNode)))} className="rounded-2xl border border-slate-200 px-4 py-3">
-            {columns.map((column) => <option key={column} value={column}>{column}</option>)}
-          </select>
-          <select value={node.data_type} onChange={(event) => {
-            const dataType = event.target.value as 'text' | 'numeric' | 'date'
-            onTreeChange(mutateNode(tree, node.id, (current) => ({
-              ...(current as RuleConditionNode),
-              data_type: dataType,
-              operator: dataType === 'text' ? 'CONTAINS' : '>',
-            })))
-          }} className="rounded-2xl border border-slate-200 px-4 py-3">
-            <option value="text">Text</option>
-            <option value="numeric">Numeric</option>
-            <option value="date">Date</option>
-          </select>
-          <select value={node.operator} onChange={(event) => onTreeChange(mutateNode(tree, node.id, (current) => ({ ...(current as RuleConditionNode), operator: event.target.value })))} className="rounded-2xl border border-slate-200 px-4 py-3">
-            {operators.map((operator) => <option key={operator} value={operator}>{operator}</option>)}
-          </select>
-          <input value={node.value ?? ''} onChange={(event) => onTreeChange(mutateNode(tree, node.id, (current) => ({ ...(current as RuleConditionNode), value: event.target.value })))} placeholder="Value" className="rounded-2xl border border-slate-200 px-4 py-3" />
-          <input value={node.secondary_value ?? ''} onChange={(event) => onTreeChange(mutateNode(tree, node.id, (current) => ({ ...(current as RuleConditionNode), secondary_value: event.target.value })))} placeholder="Second value" className="rounded-2xl border border-slate-200 px-4 py-3" />
-        </div>
-        <div className="mt-3">
-          <DropLane
-            active={activeDropKey === dropKey}
-            onDragOver={(event) => {
-              event.preventDefault()
-              setActiveDropKey(dropKey)
-            }}
-            onDragLeave={() => setActiveDropKey(activeDropKey === dropKey ? null : activeDropKey)}
-            onDrop={(event) => {
-              event.preventDefault()
-              onDropTarget(rootKey, parentId, index)
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      draggable={Boolean(parentId)}
-      onDragStart={(event) => {
-        if (!parentId) return
-        event.dataTransfer.effectAllowed = 'move'
-        event.dataTransfer.setData('text/plain', node.id)
-        onDragStart(node.id)
-      }}
-      onDragEnd={onDragEnd}
-      className={`rounded-[1.5rem] border border-dashed bg-slate-50 p-4 transition ${draggingNodeId === node.id ? 'border-ember bg-ember/5 opacity-70' : 'border-slate-300'}`}
+      className={`min-w-[210px] max-w-[240px] rounded-[1.35rem] border bg-white px-4 py-3 shadow-sm transition ${
+        data.selected ? 'border-ember shadow-lg shadow-ember/15' : 'border-slate-200'
+      }`}
     >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-ocean">Group</div>
-        <div className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{summarizeNode(node)}</div>
-      </div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select value={node.combinator} onChange={(event) => onTreeChange(mutateTree(tree, node.id, (current) => ({ ...current, combinator: event.target.value as 'AND' | 'OR' })))} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">
-          <option value="AND">AND</option>
-          <option value="OR">OR</option>
-        </select>
-        <button type="button" onClick={() => onTreeChange(mutateTree(tree, node.id, (current) => ({ ...current, children: [...current.children, createCondition(columns[0] ?? '')] })))} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ocean">
-          <Plus size={14} className="inline-block" /> Condition
-        </button>
-        <button type="button" onClick={() => onTreeChange(mutateTree(tree, node.id, (current) => ({ ...current, children: [...current.children, createGroup()] })))} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ember">
-          <Plus size={14} className="inline-block" /> Group
-        </button>
-        {parentId && (
-          <>
-            <button type="button" onClick={() => onTreeChange(moveNode(tree, parentId, index, -1))} className="rounded-full bg-slate-100 p-2 text-slate-500"><ArrowUp size={14} /></button>
-            <button type="button" onClick={() => onTreeChange(moveNode(tree, parentId, index, 1))} className="rounded-full bg-slate-100 p-2 text-slate-500"><ArrowDown size={14} /></button>
-            <button type="button" onClick={() => onTreeChange(removeNode(tree, node.id))} className="rounded-full bg-red-50 p-2 text-red-500"><Trash2 size={14} /></button>
-          </>
-        )}
-      </div>
-      <div className="space-y-3 border-l-2 border-slate-200 pl-4">
-        <DropLane
-          active={activeDropKey === dropKey}
-          onDragOver={(event) => {
-            event.preventDefault()
-            setActiveDropKey(dropKey)
-          }}
-          onDragLeave={() => setActiveDropKey(activeDropKey === dropKey ? null : activeDropKey)}
-          onDrop={(event) => {
-            event.preventDefault()
-            onDropTarget(rootKey, parentId, index)
-          }}
-        />
-        {node.children.length === 0 && <p className="text-sm text-slate-500">Drop nodes here or add nested groups and conditions.</p>}
-        {node.children.map((child, childIndex) => (
-          <div key={child.id} className="space-y-3">
-            <DropLane
-              active={activeDropKey === `${rootKey}:${node.id}:${childIndex}`}
-              onDragOver={(event) => {
-                event.preventDefault()
-                setActiveDropKey(`${rootKey}:${node.id}:${childIndex}`)
-              }}
-              onDragLeave={() => setActiveDropKey(activeDropKey === `${rootKey}:${node.id}:${childIndex}` ? null : activeDropKey)}
-              onDrop={(event) => {
-                event.preventDefault()
-                onDropTarget(rootKey, node.id, childIndex)
-              }}
-            />
-            <RuleNodeEditor
-              node={child}
-              parentId={node.id}
-              index={childIndex}
-              columns={columns}
-              onTreeChange={onTreeChange}
-              tree={tree}
-              rootKey={rootKey}
-              draggingNodeId={draggingNodeId}
-              activeDropKey={activeDropKey}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              onDropTarget={onDropTarget}
-              setActiveDropKey={setActiveDropKey}
-            />
+      <Handle type="target" position={Position.Top} className="!h-3 !w-3 !border-2 !border-white !bg-slate-400" />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${data.accentClass}`}>
+            {chipLabel}
           </div>
-        ))}
-        <DropLane
-          active={activeDropKey === `${rootKey}:${node.id}:${node.children.length}`}
-          onDragOver={(event) => {
-            event.preventDefault()
-            setActiveDropKey(`${rootKey}:${node.id}:${node.children.length}`)
-          }}
-          onDragLeave={() => setActiveDropKey(activeDropKey === `${rootKey}:${node.id}:${node.children.length}` ? null : activeDropKey)}
-          onDrop={(event) => {
-            event.preventDefault()
-            onDropTarget(rootKey, node.id, node.children.length)
-          }}
-        />
+          <div className="mt-2 text-sm font-semibold text-ink">{data.label}</div>
+        </div>
+        <div className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500">
+          Click
+        </div>
       </div>
+      <p className="mt-3 text-xs leading-5 text-slate-600">{data.summary}</p>
+      <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !border-2 !border-white !bg-slate-400" />
     </div>
   )
 }
 
-function GraphRoot({
-  title,
-  accentClass,
-  rootKey,
-  node,
-  columns,
-  setRoot,
-  draggingNodeId,
-  activeDropKey,
-  onDragStart,
-  onDragEnd,
-  onDropTarget,
-  setActiveDropKey,
+function RootFlowNode(props: NodeProps<FlowNodeData>) {
+  return <BaseFlowNode {...props} chipLabel="Root" />
+}
+
+function GroupFlowNode(props: NodeProps<FlowNodeData>) {
+  return <BaseFlowNode {...props} chipLabel="Group" />
+}
+
+function ConditionFlowNode(props: NodeProps<FlowNodeData>) {
+  return <BaseFlowNode {...props} chipLabel="Condition" />
+}
+
+const nodeTypes = {
+  root: RootFlowNode,
+  group: GroupFlowNode,
+  condition: ConditionFlowNode,
+}
+
+function buildFlowLayout(rules: RuleAst, selectedNodeId: string | null): { nodes: Node<FlowNodeData>[]; edges: Edge[] } {
+  const horizontalGap = 280
+  const verticalGap = 170
+  const rootGap = 2
+  const nodes: Node<FlowNodeData>[] = []
+  const edges: Edge[] = []
+
+  function pushTree(node: RuleNode, options: { rootKey: RootKey; rootLabel: string; startSlot: number; depth: number; parentId: string | null; isRoot: boolean }) {
+    const slotWidth = countLeafSlots(node)
+    const centerSlot = options.startSlot + (slotWidth - 1) / 2
+    const x = centerSlot * horizontalGap
+    const y = options.depth * verticalGap
+    const kind = options.isRoot ? 'root' : node.type
+    const label = options.isRoot
+      ? options.rootLabel
+      : node.type === 'group'
+        ? `${node.combinator} group`
+        : node.field
+    const accentClass = options.rootKey === 'must_have'
+      ? kind === 'condition'
+        ? 'bg-mist text-ocean'
+        : 'bg-ocean/10 text-ocean'
+      : kind === 'condition'
+        ? 'bg-sand text-ember'
+        : 'bg-amber-100 text-amber-900'
+
+    nodes.push({
+      id: node.id,
+      type: kind,
+      position: { x, y },
+      draggable: false,
+      selectable: true,
+      data: {
+        kind,
+        label,
+        summary: options.isRoot ? summarizeNode(node) : summarizeNode(node),
+        accentClass,
+        selected: selectedNodeId === node.id,
+      },
+    })
+
+    if (options.parentId) {
+      edges.push({
+        id: `${options.parentId}-${node.id}`,
+        source: options.parentId,
+        target: node.id,
+        markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+        style: { stroke: options.rootKey === 'must_have' ? '#0f4c81' : '#b45309', strokeWidth: 1.75 },
+      })
+    }
+
+    if (node.type === 'group' && node.children.length > 0) {
+      let childStart = options.startSlot
+      for (const child of node.children) {
+        const childWidth = countLeafSlots(child)
+        pushTree(child, {
+          rootKey: options.rootKey,
+          rootLabel: options.rootLabel,
+          startSlot: childStart,
+          depth: options.depth + 1,
+          parentId: node.id,
+          isRoot: false,
+        })
+        childStart += childWidth
+      }
+    }
+  }
+
+  const mustWidth = countLeafSlots(rules.must_have)
+  const goodWidth = countLeafSlots(rules.good_to_have)
+
+  pushTree(rules.must_have, {
+    rootKey: 'must_have',
+    rootLabel: 'Must Have',
+    startSlot: 0,
+    depth: 0,
+    parentId: null,
+    isRoot: true,
+  })
+  pushTree(rules.good_to_have, {
+    rootKey: 'good_to_have',
+    rootLabel: 'Good to Have',
+    startSlot: mustWidth + rootGap,
+    depth: 0,
+    parentId: null,
+    isRoot: true,
+  })
+
+  if (mustWidth === 0 && goodWidth === 0) {
+    return { nodes: [], edges: [] }
+  }
+
+  return { nodes, edges }
+}
+
+function findSelectedNode(ast: RuleAst, targetId: string | null): SelectedNodeState | null {
+  if (!targetId) return null
+
+  function visit(node: RuleNode, rootKey: RootKey, parentId: string | null, isRoot: boolean): SelectedNodeState | null {
+    if (node.id === targetId) {
+      if (node.type === 'group') {
+        return {
+          node,
+          rootKey,
+          isRoot,
+          parentId,
+        } as SelectedNodeState
+      }
+      return {
+        node,
+        rootKey,
+        isRoot: false,
+        parentId: parentId ?? ast[rootKey].id,
+      }
+    }
+
+    if (node.type === 'group') {
+      for (const child of node.children) {
+        const result = visit(child, rootKey, node.id, false)
+        if (result) return result
+      }
+    }
+
+    return null
+  }
+
+  return visit(ast.must_have, 'must_have', null, true) ?? visit(ast.good_to_have, 'good_to_have', null, true)
+}
+
+function FlowchartCanvas({
+  rules,
+  selectedNodeId,
+  onSelectNode,
 }: {
-  title: string
-  accentClass: string
-  rootKey: RootKey
-  node: RuleGroupNode
-  columns: string[]
-  setRoot: (next: RuleGroupNode) => void
-  draggingNodeId: string | null
-  activeDropKey: string | null
-  onDragStart: (nodeId: string) => void
-  onDragEnd: () => void
-  onDropTarget: (targetRoot: RootKey, targetParentId: string, targetIndex: number) => void
-  setActiveDropKey: Dispatch<SetStateAction<string | null>>
+  rules: RuleAst
+  selectedNodeId: string | null
+  onSelectNode: (nodeId: string) => void
 }) {
+  const flow = useMemo(() => buildFlowLayout(rules, selectedNodeId), [rules, selectedNodeId])
+
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="font-display text-lg text-ink">{title}</h3>
-          <p className="text-sm text-slate-600">Drag cards between groups and across trees. Drop lanes define exact placement.</p>
-        </div>
-        <div className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${accentClass}`}>Root group</div>
-      </div>
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-3">
-          <select value={node.combinator} onChange={(event) => setRoot({ ...node, combinator: event.target.value as 'AND' | 'OR' })} className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold">
-            <option value="AND">AND</option>
-            <option value="OR">OR</option>
-          </select>
-          <button type="button" onClick={() => setRoot({ ...node, children: [...node.children, createCondition(columns[0] ?? '')] })} className="rounded-full bg-mist px-4 py-2 text-sm font-semibold text-ocean">
-            <Plus size={14} className="inline-block" /> Condition
-          </button>
-          <button type="button" onClick={() => setRoot({ ...node, children: [...node.children, createGroup()] })} className="rounded-full bg-sand px-4 py-2 text-sm font-semibold text-ember">
-            <Plus size={14} className="inline-block" /> Group
-          </button>
-        </div>
-        <div className="space-y-3">
-          <DropLane
-            active={activeDropKey === `${rootKey}:${node.id}:0`}
-            onDragOver={(event) => {
-              event.preventDefault()
-              setActiveDropKey(`${rootKey}:${node.id}:0`)
-            }}
-            onDragLeave={() => setActiveDropKey(activeDropKey === `${rootKey}:${node.id}:0` ? null : activeDropKey)}
-            onDrop={(event) => {
-              event.preventDefault()
-              onDropTarget(rootKey, node.id, 0)
-            }}
-          />
-          {node.children.length === 0 && <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">This root is empty. Add a node or drag one in from the other tree.</p>}
-          {node.children.map((child, index) => (
-            <div key={child.id} className="space-y-3">
-              <RuleNodeEditor
-                node={child}
-                parentId={node.id}
-                index={index}
-                columns={columns}
-                onTreeChange={setRoot}
-                tree={node}
-                rootKey={rootKey}
-                draggingNodeId={draggingNodeId}
-                activeDropKey={activeDropKey}
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
-                onDropTarget={onDropTarget}
-                setActiveDropKey={setActiveDropKey}
-              />
-              <DropLane
-                active={activeDropKey === `${rootKey}:${node.id}:${index + 1}`}
-                onDragOver={(event) => {
-                  event.preventDefault()
-                  setActiveDropKey(`${rootKey}:${node.id}:${index + 1}`)
-                }}
-                onDragLeave={() => setActiveDropKey(activeDropKey === `${rootKey}:${node.id}:${index + 1}` ? null : activeDropKey)}
-                onDrop={(event) => {
-                  event.preventDefault()
-                  onDropTarget(rootKey, node.id, index + 1)
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="h-[42rem] overflow-hidden rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(239,246,255,0.92))]">
+      <ReactFlow
+        nodes={flow.nodes}
+        edges={flow.edges}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.16 }}
+        minZoom={0.45}
+        maxZoom={1.5}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable
+        onNodeClick={(_, node) => onSelectNode(node.id)}
+        proOptions={{ hideAttribution: true }}
+      >
+        <MiniMap pannable zoomable nodeColor={(node) => (node.id === selectedNodeId ? '#c2410c' : '#94a3b8')} />
+        <Controls showInteractive={false} />
+        <Background gap={20} color="#d7e3f4" />
+      </ReactFlow>
+    </div>
+  )
+}
+
+function InspectorSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-[1.4rem] border border-slate-200 bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{title}</div>
+      <div className="mt-3 space-y-3">{children}</div>
     </div>
   )
 }
@@ -549,11 +408,10 @@ export function RuleBuilder({
   const [name, setName] = useState(existingRuleSet?.name ?? 'Default Rule Set')
   const [rules, setRules] = useState<RuleAst>(existingRuleSet?.ast_json ?? defaultRules)
   const [saving, setSaving] = useState(false)
-  const [mode, setMode] = useState<EditorMode>('graph')
+  const [mode, setMode] = useState<EditorMode>('flowchart')
   const [syntaxText, setSyntaxText] = useState(JSON.stringify(existingRuleSet?.ast_json ?? defaultRules, null, 2))
   const [syntaxError, setSyntaxError] = useState('')
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
-  const [activeDropKey, setActiveDropKey] = useState<string | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(existingRuleSet?.ast_json.must_have.id ?? defaultRules.must_have.id)
 
   useEffect(() => {
     if (existingRuleSet) {
@@ -561,6 +419,7 @@ export function RuleBuilder({
       setRules(existingRuleSet.ast_json)
       setSyntaxText(JSON.stringify(existingRuleSet.ast_json, null, 2))
       setSyntaxError('')
+      setSelectedNodeId(existingRuleSet.ast_json.must_have.id)
     }
   }, [existingRuleSet])
 
@@ -570,9 +429,51 @@ export function RuleBuilder({
   }, [rules])
 
   const usableColumns = columns.length ? columns : ['classification']
+  const selectedNode = useMemo(() => findSelectedNode(rules, selectedNodeId), [rules, selectedNodeId])
+
+  useEffect(() => {
+    if (!selectedNode) {
+      setSelectedNodeId(rules.must_have.id)
+    }
+  }, [selectedNode, rules.must_have.id])
 
   function updateRules(next: RuleAst) {
     setRules(normalizeRuleAst(next, usableColumns))
+  }
+
+  function updateRoot(rootKey: RootKey, updater: (root: RuleGroupNode) => RuleGroupNode) {
+    updateRules({
+      ...rules,
+      [rootKey]: updater(rules[rootKey]),
+    })
+  }
+
+  function updateSelectedGroup(updater: (group: RuleGroupNode) => RuleGroupNode) {
+    if (!selectedNode || selectedNode.node.type !== 'group') return
+    updateRoot(selectedNode.rootKey, (root) => mutateTree(root, selectedNode.node.id, updater))
+  }
+
+  function updateSelectedCondition(updater: (condition: RuleConditionNode) => RuleConditionNode) {
+    if (!selectedNode || selectedNode.node.type !== 'condition') return
+    updateRoot(selectedNode.rootKey, (root) =>
+      mutateNode(root, selectedNode.node.id, (node) => {
+        if (node.type !== 'condition') return node
+        return updater(node)
+      }),
+    )
+  }
+
+  function addChild(childType: 'condition' | 'group') {
+    if (!selectedNode || selectedNode.node.type !== 'group') return
+    const child = childType === 'condition' ? createCondition(usableColumns[0] ?? '') : createGroup()
+    updateSelectedGroup((group) => ({ ...group, children: [...group.children, child] }))
+    setSelectedNodeId(child.id)
+  }
+
+  function deleteSelectedNode() {
+    if (!selectedNode || selectedNode.isRoot) return
+    updateRoot(selectedNode.rootKey, (root) => removeNode(root, selectedNode.node.id))
+    setSelectedNodeId(selectedNode.parentId)
   }
 
   function handleSyntaxChange(value: string) {
@@ -582,6 +483,7 @@ export function RuleBuilder({
       const normalized = normalizeRuleAst(parsed, usableColumns)
       setRules(normalized)
       setSyntaxError('')
+      setSelectedNodeId((current) => findSelectedNode(normalized, current)?.node.id ?? normalized.must_have.id)
     } catch (error) {
       setSyntaxError(error instanceof Error ? error.message : 'Invalid JSON')
     }
@@ -596,13 +498,6 @@ export function RuleBuilder({
     }
   }
 
-  function handleDropTarget(targetRoot: RootKey, targetParentId: string, targetIndex: number) {
-    if (!draggingNodeId) return
-    setRules((current) => moveAstNode(current, draggingNodeId, targetRoot, targetParentId, targetIndex))
-    setDraggingNodeId(null)
-    setActiveDropKey(null)
-  }
-
   const modeButtonClass = (value: EditorMode) =>
     `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
       mode === value ? 'bg-ink text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -614,10 +509,10 @@ export function RuleBuilder({
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-ocean">
             <FolderTree size={14} />
-            Dual AST Rule Builder
+            AST Flowchart Builder
           </div>
           <h2 className="mt-3 font-display text-2xl text-ink">Visual Classification Logic</h2>
-          <p className="text-sm text-slate-600">Switch between a drag-and-drop node graph and editable syntax. Both views update the same AST in real time.</p>
+          <p className="text-sm text-slate-600">Edit the rule tree as a real flowchart. Click a node to configure it, then save the same AST structure already used by the backend.</p>
         </div>
         <div className="flex flex-col gap-3 md:items-end">
           <input value={name} onChange={(event) => setName(event.target.value)} className="rounded-full border border-slate-200 px-4 py-3" />
@@ -626,9 +521,9 @@ export function RuleBuilder({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="button" onClick={() => setMode('graph')} className={modeButtonClass('graph')}>
+        <button type="button" onClick={() => setMode('flowchart')} className={modeButtonClass('flowchart')}>
           <GitBranch size={16} />
-          Node graph
+          Flowchart
         </button>
         <button type="button" onClick={() => setMode('syntax')} className={modeButtonClass('syntax')}>
           <Braces size={16} />
@@ -640,57 +535,126 @@ export function RuleBuilder({
         </button>
       </div>
 
-      {(mode === 'graph' || mode === 'split') && (
-        <div className={`mt-6 grid gap-6 ${mode === 'split' ? '2xl:grid-cols-[1.2fr_0.8fr]' : ''}`}>
-          <div className="grid gap-6 xl:grid-cols-2">
-            <GraphRoot
-              title="Must Have"
-              accentClass="bg-mist text-ocean"
-              rootKey="must_have"
-              node={rules.must_have}
-              columns={usableColumns}
-              setRoot={(next) => updateRules({ ...rules, must_have: next })}
-              draggingNodeId={draggingNodeId}
-              activeDropKey={activeDropKey}
-              onDragStart={setDraggingNodeId}
-              onDragEnd={() => {
-                setDraggingNodeId(null)
-                setActiveDropKey(null)
-              }}
-              onDropTarget={handleDropTarget}
-              setActiveDropKey={setActiveDropKey}
-            />
-            <GraphRoot
-              title="Good to Have"
-              accentClass="bg-sand text-ember"
-              rootKey="good_to_have"
-              node={rules.good_to_have}
-              columns={usableColumns}
-              setRoot={(next) => updateRules({ ...rules, good_to_have: next })}
-              draggingNodeId={draggingNodeId}
-              activeDropKey={activeDropKey}
-              onDragStart={setDraggingNodeId}
-              onDragEnd={() => {
-                setDraggingNodeId(null)
-                setActiveDropKey(null)
-              }}
-              onDropTarget={handleDropTarget}
-              setActiveDropKey={setActiveDropKey}
-            />
-          </div>
+      {(mode === 'flowchart' || mode === 'split') && (
+        <div className={`mt-6 grid gap-6 ${mode === 'split' ? '2xl:grid-cols-[1.55fr_0.9fr]' : 'xl:grid-cols-[1.6fr_0.7fr]'}`}>
+          <FlowchartCanvas rules={rules} selectedNodeId={selectedNode?.node.id ?? null} onSelectNode={setSelectedNodeId} />
 
-          {mode === 'split' && (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-950 p-4 text-xs text-cyan-200">
-              <div className="mb-2 font-display text-sm uppercase tracking-[0.2em] text-cyan-100">Live syntax</div>
-              <textarea
-                value={syntaxText}
-                onChange={(event) => handleSyntaxChange(event.target.value)}
-                spellCheck={false}
-                className="min-h-[34rem] w-full rounded-2xl border border-cyan-900 bg-slate-950 px-4 py-4 font-mono text-xs text-cyan-200 outline-none"
-              />
-              {syntaxError && <p className="mt-3 text-sm text-red-300">Syntax error: {syntaxError}</p>}
-            </div>
-          )}
+          <div className="space-y-4">
+            <InspectorSection title="Inspector">
+              {selectedNode ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-ink">
+                        {selectedNode.isRoot ? 'Root group' : selectedNode.node.type === 'group' ? 'Group node' : 'Condition node'}
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">{summarizeNode(selectedNode.node)}</p>
+                    </div>
+                    {!selectedNode.isRoot && (
+                      <button type="button" onClick={deleteSelectedNode} className="rounded-full bg-red-50 p-2 text-red-500">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedNode.node.type === 'group' ? (
+                    <>
+                      <select
+                        value={selectedNode.node.combinator}
+                        onChange={(event) =>
+                          updateSelectedGroup((group) => ({ ...group, combinator: event.target.value as 'AND' | 'OR' }))
+                        }
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                      >
+                        <option value="AND">AND</option>
+                        <option value="OR">OR</option>
+                      </select>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button type="button" onClick={() => addChild('condition')} className="rounded-full bg-mist px-4 py-3 text-sm font-semibold text-ocean">
+                          <Plus size={14} className="mr-1 inline-block" />
+                          Add condition
+                        </button>
+                        <button type="button" onClick={() => addChild('group')} className="rounded-full bg-sand px-4 py-3 text-sm font-semibold text-amber-900">
+                          <Plus size={14} className="mr-1 inline-block" />
+                          Add group
+                        </button>
+                      </div>
+                      <p className="text-xs leading-5 text-slate-500">Groups define logical branches. Child nodes are attached visually under the selected group.</p>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={selectedNode.node.field}
+                        onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, field: event.target.value }))}
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                      >
+                        {usableColumns.map((column) => <option key={column} value={column}>{column}</option>)}
+                      </select>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <select
+                          value={selectedNode.node.data_type}
+                          onChange={(event) => {
+                            const dataType = event.target.value as 'text' | 'numeric' | 'date'
+                            updateSelectedCondition((condition) => ({
+                              ...condition,
+                              data_type: dataType,
+                              operator: dataType === 'text' ? 'CONTAINS' : '>',
+                            }))
+                          }}
+                          className="rounded-2xl border border-slate-200 px-4 py-3"
+                        >
+                          <option value="text">Text</option>
+                          <option value="numeric">Numeric</option>
+                          <option value="date">Date</option>
+                        </select>
+                        <select
+                          value={selectedNode.node.operator}
+                          onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, operator: event.target.value }))}
+                          className="rounded-2xl border border-slate-200 px-4 py-3"
+                        >
+                          {(selectedNode.node.data_type === 'text' ? textOperators : rangeOperators).map((operator) => (
+                            <option key={operator} value={operator}>{operator}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <input
+                        value={selectedNode.node.value ?? ''}
+                        onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, value: event.target.value }))}
+                        placeholder="Value"
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                      />
+                      <input
+                        value={selectedNode.node.secondary_value ?? ''}
+                        onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, secondary_value: event.target.value }))}
+                        placeholder="Second value"
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">Select a node in the flowchart to inspect or edit it.</p>
+              )}
+            </InspectorSection>
+
+            <InspectorSection title="Flowchart Rules">
+              <p className="text-sm text-slate-600">This mode is no longer a sortable rule list. Nodes are visual summaries, and all configuration happens through selection.</p>
+              <p className="text-sm text-slate-600">Use pan and zoom to navigate deeper trees. The AST JSON below stays synchronized with every valid change.</p>
+            </InspectorSection>
+
+            {mode === 'split' && (
+              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-950 p-4 text-xs text-cyan-200">
+                <div className="mb-2 font-display text-sm uppercase tracking-[0.2em] text-cyan-100">Live syntax</div>
+                <textarea
+                  value={syntaxText}
+                  onChange={(event) => handleSyntaxChange(event.target.value)}
+                  spellCheck={false}
+                  className="min-h-[26rem] w-full rounded-2xl border border-cyan-900 bg-slate-950 px-4 py-4 font-mono text-xs text-cyan-200 outline-none"
+                />
+                {syntaxError && <p className="mt-3 text-sm text-red-300">Syntax error: {syntaxError}</p>}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -707,12 +671,12 @@ export function RuleBuilder({
             {syntaxError && <p className="mt-3 text-sm text-red-300">Syntax error: {syntaxError}</p>}
           </div>
           <div className="rounded-[1.5rem] border border-slate-200 bg-sand p-4">
-            <p className="text-sm font-semibold text-ember">Interchangeable editing</p>
-            <p className="mt-2 text-sm text-slate-700">Valid JSON updates the node graph immediately. Dragging in the graph also rewrites the syntax view, so both editors stay aligned to the same nested AST.</p>
+            <p className="text-sm font-semibold text-amber-900">Flowchart synchronization</p>
+            <p className="mt-2 text-sm text-slate-700">Valid JSON updates the flowchart immediately. Node selection stays aligned to the same underlying AST whenever possible.</p>
             <div className="mt-4 rounded-2xl bg-white p-4 text-sm text-slate-600">
               <p className="font-semibold text-ink">Tips</p>
               <p className="mt-2">Use `type: "group"` with `children` for nested logic and `type: "condition"` for leaves.</p>
-              <p className="mt-2">Invalid JSON stays in the editor, but the graph keeps the last valid AST until the syntax is fixed.</p>
+              <p className="mt-2">If a selected node disappears in JSON, the editor safely falls back to the `Must Have` root.</p>
             </div>
           </div>
         </div>
@@ -733,8 +697,8 @@ export function RuleBuilder({
           </div>
         </div>
         <div className="rounded-[1.5rem] border border-slate-200 bg-sand p-4">
-          <p className="text-sm font-semibold text-ember">Versioned persistence</p>
-          <p className="mt-2 text-sm text-slate-700">Every save creates a new ruleset version, preserving the exact nested structure and stable node identifiers for explanations.</p>
+          <p className="text-sm font-semibold text-amber-900">Versioned persistence</p>
+          <p className="mt-2 text-sm text-slate-700">Every save still creates a new ruleset version. The flowchart changes only the visual interaction model, not the persisted AST contract.</p>
           <button type="button" onClick={handleSave} disabled={saving || !columns.length || Boolean(syntaxError)} className="mt-4 w-full rounded-full bg-ember px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
             {saving ? 'Saving...' : 'Save rule set'}
           </button>

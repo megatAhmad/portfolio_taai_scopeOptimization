@@ -32,7 +32,7 @@ Use a custom case file:
 - `equipment_id_cleaning_cases.json`
   Starter scenarios for transform and dataframe-expansion behavior.
 - `run_equipment_id_cleaning_checks.py`
-  Small runner that prints pass/fail output and diffs for failed cases.
+  Small runner that prints pass/fail output, the raw ID input, and the resulting transformed IDs.
 
 ## Case Types
 

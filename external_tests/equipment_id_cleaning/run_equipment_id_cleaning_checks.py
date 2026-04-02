@@ -35,11 +35,17 @@ def compare_set_contains(name: str, actual: list[str], expected: list[str], fail
         failures.append(f'{name}: missing expected items {missing!r} from {actual!r}')
 
 
-def run_transform_case(case: dict[str, Any]) -> list[str]:
+def run_transform_case(case: dict[str, Any]) -> tuple[list[str], list[str]]:
     failures: list[str] = []
     config = normalize_cleaning_config(case.get('config'))
-    intermediate, final_ids, change_types, parse_status, notes = transform_equipment_id(case.get('input'), config)
+    raw_input = case.get('input')
+    intermediate, final_ids, change_types, parse_status, notes = transform_equipment_id(raw_input, config)
     expected = case.get('expected', {})
+    details = [
+        f"  raw: {raw_input!r}",
+        f"  intermediate: {intermediate!r}",
+        f"  final_ids: {final_ids!r}",
+    ]
 
     if 'intermediate' in expected and intermediate != expected['intermediate']:
         failures.append(f"intermediate: expected {expected['intermediate']!r}, got {intermediate!r}")
@@ -56,21 +62,27 @@ def run_transform_case(case: dict[str, Any]) -> list[str]:
             if not any(snippet in note for note in notes):
                 failures.append(f'notes_contains: expected a note containing {snippet!r}, got {notes!r}')
 
-    return failures
+    return failures, details
 
 
-def run_dataframe_case(case: dict[str, Any]) -> list[str]:
+def run_dataframe_case(case: dict[str, Any]) -> tuple[list[str], list[str]]:
     failures: list[str] = []
     equipment_column = case['equipment_column']
     frame = pd.DataFrame(case.get('rows', []))
     transformed, audits = apply_equipment_id_cleaning(frame, equipment_column, case.get('config'))
     expected = case.get('expected', {})
+    raw_ids = frame[equipment_column].astype(str).tolist() if equipment_column in frame.columns else []
+    final_ids = transformed[equipment_column].astype(str).tolist() if equipment_column in transformed.columns else []
+    details = [
+        f"  raw_ids: {raw_ids!r}",
+        f"  emitted_ids: {final_ids!r}",
+    ]
 
     if 'row_count' in expected and len(transformed) != expected['row_count']:
         failures.append(f"row_count: expected {expected['row_count']!r}, got {len(transformed)!r}")
 
     if 'final_ids' in expected:
-        compare_sequence('final_ids', transformed[equipment_column].astype(str).tolist(), expected['final_ids'], failures)
+        compare_sequence('final_ids', final_ids, expected['final_ids'], failures)
 
     if 'source_row_indexes' in expected:
         compare_sequence(
@@ -100,16 +112,16 @@ def run_dataframe_case(case: dict[str, Any]) -> list[str]:
     if expected_audit_count is not None and len(audits) != expected_audit_count:
         failures.append(f'audit_count: expected {expected_audit_count!r}, got {len(audits)!r}')
 
-    return failures
+    return failures, details
 
 
-def run_case(case: dict[str, Any]) -> list[str]:
+def run_case(case: dict[str, Any]) -> tuple[list[str], list[str]]:
     case_type = case.get('type', 'transform')
     if case_type == 'transform':
         return run_transform_case(case)
     if case_type == 'dataframe':
         return run_dataframe_case(case)
-    return [f"Unsupported case type: {case_type!r}"]
+    return [f"Unsupported case type: {case_type!r}"], []
 
 
 def main() -> int:
@@ -133,17 +145,21 @@ def main() -> int:
     passed = 0
     failed = 0
     for case in cases:
-        failures = run_case(case)
+        failures, details = run_case(case)
         if failures:
             failed += 1
             print(f"FAIL {case.get('id', '<missing-id>')}")
             print(f"Description: {case.get('description', '')}")
+            for item in details:
+                print(item)
             for item in failures:
                 print(f'  - {item}')
             print()
         else:
             passed += 1
             print(f"PASS {case.get('id', '<missing-id>')}")
+            for item in details:
+                print(item)
 
     print()
     print(f'{passed} passed, {failed} failed')

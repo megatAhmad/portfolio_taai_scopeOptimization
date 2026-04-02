@@ -169,11 +169,24 @@ def iter_condition_values(value: Any) -> list[Any]:
     return [] if normalize_null(value) else [value]
 
 
+def split_condition_list_values(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if not normalize_null(item) and str(item).strip()]
+    if normalize_null(raw):
+        return []
+    return [item.strip() for item in str(raw).split(',') if item.strip()]
+
+
+def get_condition_list_values(condition: dict[str, Any]) -> list[str]:
+    return split_condition_list_values(condition.get('values')) or split_condition_list_values(condition.get('value'))
+
+
 def evaluate_scalar_condition(left: Any, condition: dict[str, Any]) -> bool | None:
     operator = condition['operator']
     data_type = condition['data_type']
     right = condition.get('value')
     second = condition.get('secondary_value')
+    list_values = get_condition_list_values(condition)
 
     if data_type == 'numeric':
         left = to_numeric(left)
@@ -208,14 +221,17 @@ def evaluate_scalar_condition(left: Any, condition: dict[str, Any]) -> bool | No
     if operator == 'CONTAINS':
         return str(right).lower() in str(left).lower()
     if operator == 'CONTAINS ANY':
-        values = [item.strip() for item in str(right).split(',') if item.strip()]
-        return any(token.lower() in str(left).lower() for token in values)
+        if not list_values:
+            return False
+        return any(token.lower() in str(left).lower() for token in list_values)
     if operator == 'CONTAINS ALL':
-        values = [item.strip() for item in str(right).split(',') if item.strip()]
-        return all(token.lower() in str(left).lower() for token in values)
+        if not list_values:
+            return False
+        return all(token.lower() in str(left).lower() for token in list_values)
     if operator == 'IN':
-        values = [item.strip() for item in str(right).split(',') if item.strip()]
-        return str(left) in values
+        if not list_values:
+            return False
+        return str(left) in list_values
     raise ValueError(f'Unsupported operator: {operator}')
 
 
@@ -511,7 +527,7 @@ def evaluate_ast_with_trace(row: dict[str, Any], node: RuleGroupNode | RuleCondi
         'data_type': node.data_type,
         'result': outcome,
         'actual_value': row.get(node.field),
-        'expected_value': node.value,
+        'expected_value': get_condition_list_values(node.model_dump()) if node.operator in {'CONTAINS ANY', 'CONTAINS ALL', 'IN'} else node.value,
         'secondary_value': node.secondary_value,
     }, [node.id] if outcome else [], {node.field}
 

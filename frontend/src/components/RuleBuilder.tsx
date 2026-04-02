@@ -33,6 +33,8 @@ type SelectedNodeState =
   | { node: RuleGroupNode; rootKey: RootKey; isRoot: false; parentId: string }
   | { node: RuleConditionNode; rootKey: RootKey; isRoot: false; parentId: string }
 
+type ConditionInputMode = 'single' | 'between' | 'multi_list'
+
 function createId() {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `node_${Math.random().toString(36).slice(2, 10)}`
 }
@@ -46,6 +48,7 @@ function createCondition(field: string): RuleConditionNode {
     operator: 'CONTAINS',
     value: '',
     secondary_value: '',
+    values: [''],
   }
 }
 
@@ -81,14 +84,23 @@ function normalizeConditionNode(value: unknown, columns: string[]): RuleConditio
 
   const dataType = value.data_type === 'numeric' || value.data_type === 'date' ? value.data_type : 'text'
   const operatorPool = dataType === 'text' ? textOperators : rangeOperators
+  const operator = typeof value.operator === 'string' && operatorPool.includes(value.operator) ? value.operator : operatorPool[0]
+  const rawValue = typeof value.value === 'string' ? value.value : ''
+  const rawSecondary = typeof value.secondary_value === 'string' ? value.secondary_value : ''
+  const rawValues = Array.isArray(value.values) ? value.values.map((item) => (item == null ? '' : String(item))) : []
+  const normalizedValues = getConditionInputMode(operator) === 'multi_list'
+    ? normalizeMultiValueList(rawValues.length ? rawValues : splitCommaValues(rawValue))
+    : undefined
+
   return {
     id: typeof value.id === 'string' && value.id ? value.id : createId(),
     type: 'condition',
     field: value.field || fallbackField,
     data_type: dataType,
-    operator: typeof value.operator === 'string' && operatorPool.includes(value.operator) ? value.operator : operatorPool[0],
-    value: typeof value.value === 'string' ? value.value : '',
-    secondary_value: typeof value.secondary_value === 'string' ? value.secondary_value : '',
+    operator,
+    value: rawValue,
+    secondary_value: rawSecondary,
+    values: normalizedValues,
   }
 }
 
@@ -124,12 +136,127 @@ function normalizeRuleAst(value: unknown, columns: string[]): RuleAst {
 
 function summarizeNode(node: RuleNode): string {
   if (node.type === 'condition') {
+    if (getConditionInputMode(node.operator) === 'multi_list') {
+      const values = normalizeMultiValueList(node.values ?? splitCommaValues(node.value ?? ''))
+      const rendered = values.filter((item) => item.trim()).join(', ')
+      return `${node.field} ${node.operator}${rendered ? ` ${rendered}` : ''}`
+    }
     const second = node.operator === 'BETWEEN' && node.secondary_value ? ` and ${node.secondary_value}` : ''
     const value = node.value ? ` ${node.value}` : ''
     return `${node.field} ${node.operator}${value}${second}`
   }
   const base = `${node.combinator} group with ${node.children.length} item${node.children.length === 1 ? '' : 's'}`
   return node.name ? `${node.name} • ${base}` : base
+}
+
+function getConditionInputMode(operator: string): ConditionInputMode {
+  if (operator === 'BETWEEN') return 'between'
+  if (operator === 'CONTAINS ANY' || operator === 'CONTAINS ALL') return 'multi_list'
+  return 'single'
+}
+
+function splitCommaValues(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeMultiValueList(values: string[]): string[] {
+  const next = values.map((item) => item ?? '')
+  return next.length ? next : ['']
+}
+
+function coerceConditionForOperator(condition: RuleConditionNode, operator: string): RuleConditionNode {
+  const mode = getConditionInputMode(operator)
+  const seedValues = normalizeMultiValueList(
+    (condition.values && condition.values.length ? condition.values : splitCommaValues(condition.value ?? '')),
+  )
+
+  if (mode === 'multi_list') {
+    return {
+      ...condition,
+      operator,
+      value: seedValues[0] ?? '',
+      secondary_value: '',
+      values: seedValues,
+    }
+  }
+
+  if (mode === 'between') {
+    return {
+      ...condition,
+      operator,
+      value: condition.value || seedValues[0] || '',
+      secondary_value: condition.secondary_value || seedValues[1] || '',
+      values: undefined,
+    }
+  }
+
+  return {
+    ...condition,
+    operator,
+    value: condition.value || seedValues[0] || '',
+    secondary_value: '',
+    values: undefined,
+  }
+}
+
+function MultiValueEditor({
+  values,
+  onChange,
+}: {
+  values: string[]
+  onChange: (next: string[]) => void
+}) {
+  return (
+    <div className="space-y-3">
+      {values.map((value, index) => (
+        <div key={`${index}-${value}`} className="flex items-center gap-3">
+          <input
+            value={value}
+            onChange={(event) => {
+              const next = [...values]
+              next[index] = event.target.value
+              onChange(next)
+            }}
+            onBlur={(event) => {
+              const parts = splitCommaValues(event.target.value)
+              if (parts.length <= 1) return
+              const next = [...values]
+              next.splice(index, 1, ...parts)
+              onChange(normalizeMultiValueList(next))
+            }}
+            placeholder={`Value ${index + 1}`}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const next = values.filter((_, currentIndex) => currentIndex !== index)
+              onChange(normalizeMultiValueList(next))
+            }}
+            disabled={values.length === 1}
+            className="rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = [...values]
+              next.splice(index + 1, 0, '')
+              onChange(next)
+            }}
+            className="rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            +
+          </button>
+        </div>
+      ))}
+      <p className="text-xs leading-5 text-slate-500">Each row accepts one value. Paste comma-separated text to split it into multiple rows.</p>
+    </div>
+  )
 }
 
 function mutateTree(root: RuleGroupNode, targetId: string, updater: (node: RuleGroupNode) => RuleGroupNode): RuleGroupNode {
@@ -432,6 +559,7 @@ export function RuleBuilder({
 
   const usableColumns = columns.length ? columns : ['classification']
   const selectedNode = useMemo(() => findSelectedNode(rules, selectedNodeId), [rules, selectedNodeId])
+  const selectedConditionMode = selectedNode?.node.type === 'condition' ? getConditionInputMode(selectedNode.node.operator) : null
 
   useEffect(() => {
     if (!selectedNode) {
@@ -605,10 +733,10 @@ export function RuleBuilder({
                           value={selectedNode.node.data_type}
                           onChange={(event) => {
                             const dataType = event.target.value as 'text' | 'numeric' | 'date'
+                            const nextOperator = dataType === 'text' ? 'CONTAINS' : '>'
                             updateSelectedCondition((condition) => ({
-                              ...condition,
+                              ...coerceConditionForOperator(condition, nextOperator),
                               data_type: dataType,
-                              operator: dataType === 'text' ? 'CONTAINS' : '>',
                             }))
                           }}
                           className="rounded-2xl border border-slate-200 px-4 py-3"
@@ -619,7 +747,7 @@ export function RuleBuilder({
                         </select>
                         <select
                           value={selectedNode.node.operator}
-                          onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, operator: event.target.value }))}
+                          onChange={(event) => updateSelectedCondition((condition) => coerceConditionForOperator(condition, event.target.value))}
                           className="rounded-2xl border border-slate-200 px-4 py-3"
                         >
                           {(selectedNode.node.data_type === 'text' ? textOperators : rangeOperators).map((operator) => (
@@ -627,18 +755,41 @@ export function RuleBuilder({
                           ))}
                         </select>
                       </div>
-                      <input
-                        value={selectedNode.node.value ?? ''}
-                        onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, value: event.target.value }))}
-                        placeholder="Value"
-                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
-                      />
-                      <input
-                        value={selectedNode.node.secondary_value ?? ''}
-                        onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, secondary_value: event.target.value }))}
-                        placeholder="Second value"
-                        className="w-full rounded-2xl border border-slate-200 px-4 py-3"
-                      />
+                      {selectedConditionMode === 'single' && (
+                        <input
+                          value={selectedNode.node.value ?? ''}
+                          onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, value: event.target.value }))}
+                          placeholder="Value"
+                          className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                        />
+                      )}
+                      {selectedConditionMode === 'between' && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <input
+                            value={selectedNode.node.value ?? ''}
+                            onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, value: event.target.value }))}
+                            placeholder="First value"
+                            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                          />
+                          <input
+                            value={selectedNode.node.secondary_value ?? ''}
+                            onChange={(event) => updateSelectedCondition((condition) => ({ ...condition, secondary_value: event.target.value }))}
+                            placeholder="Second value"
+                            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+                          />
+                        </div>
+                      )}
+                      {selectedConditionMode === 'multi_list' && (
+                        <MultiValueEditor
+                          values={normalizeMultiValueList(selectedNode.node.values ?? splitCommaValues(selectedNode.node.value ?? ''))}
+                          onChange={(next) => updateSelectedCondition((condition) => ({
+                            ...condition,
+                            values: normalizeMultiValueList(next),
+                            value: next[0] ?? '',
+                            secondary_value: '',
+                          }))}
+                        />
+                      )}
                     </>
                   )}
                 </>

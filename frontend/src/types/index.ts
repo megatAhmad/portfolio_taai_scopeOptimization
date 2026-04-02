@@ -122,6 +122,7 @@ export type RuleConditionNode = {
   operator: string
   value?: string
   secondary_value?: string
+  values?: string[]
 }
 
 export type RuleGroupNode = {

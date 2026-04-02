@@ -119,13 +119,13 @@
               <p>Users map source columns into canonical-friendly names. Validation blocks missing targets, duplicate targets, and excluded join or equipment ID fields.</p>
             </div>
           </article>
-          <article class="flow-card">
-            <div class="flow-index">04</div>
-            <div>
-              <h4>Equipment ID Cleaning Review</h4>
-              <p>The intake flow can preprocess equipment IDs before matching. It removes whitespace up front, applies bracket cleanup, expands compound IDs joined by <code>&amp;</code>, <code>/</code>, or <code>,</code>, removes whitespace again at the end, drops alpha-only emitted IDs, and shows both transformed rows and paged audit output before upload.</p>
-            </div>
-          </article>
+              <article class="flow-card">
+                <div class="flow-index">04</div>
+                <div>
+                  <h4>Equipment ID Cleaning Review</h4>
+                  <p>The intake flow can preprocess equipment IDs before matching. It removes whitespace up front, applies bracket cleanup, expands compound IDs joined by <code>&amp;</code>, <code>/</code>, or <code>,</code>, supports shorthand and shared-prefix inheritance patterns, removes whitespace again at the end, drops alpha-only emitted IDs, and shows both transformed rows and paged audit output before upload.</p>
+                </div>
+              </article>
           <article class="flow-card">
             <div class="flow-index">05</div>
             <div>
@@ -238,8 +238,22 @@
                   <li>Remove whitespace before other cleaning logic.</li>
                   <li>Remove bracketed segments and bridge gaps with <code>-</code> when needed.</li>
                   <li>Split compound IDs on <code>&amp;</code>, <code>/</code>, and <code>,</code>.</li>
+                  <li>Support shorthand inheritance and shared-prefix replacement around the last hyphen when the pattern is deterministic.</li>
                   <li>Remove whitespace again at the end of the full process.</li>
                   <li>Drop any emitted ID that contains no digits.</li>
+                </ul>
+              </article>
+              <article class="algorithm-card">
+                <h4>Cleaning Methods And Supported Examples</h4>
+                <ul>
+                  <li>Whitespace cleanup: <code> 101 A / 101B </code> becomes <code>101A</code> and <code>101B</code>.</li>
+                  <li>Bracket cleanup with dash bridging: <code>101A(CC)B</code> becomes <code>101A-B</code>.</li>
+                  <li>Direct compound split: <code>101A/101B</code> becomes <code>101A</code> and <code>101B</code>.</li>
+                  <li>Simple shorthand inheritance: <code>101A/B</code> becomes <code>101A</code> and <code>101B</code>.</li>
+                  <li>Last-segment replacement: <code>ET-0-LG-115AB/116AB</code> becomes <code>ET-0-LG-115AB</code> and <code>ET-0-LG-116AB</code>.</li>
+                  <li>Inherit after the last hyphen: <code>JB-DBP-TF1-1/1R2/08</code> becomes <code>JB-DBP-TF1-1</code>, <code>JB-DBP-TF1-1R2</code>, and <code>JB-DBP-TF1-08</code>.</li>
+                  <li>Alpha-tail replacement with shared numeric suffix: <code>1-BNG-TH3-N/1R4/09-1</code> becomes <code>1-BNG-TH3-N-1</code>, <code>1-BNG-TH3-1R4-1</code>, and <code>1-BNG-TH3-09-1</code>.</li>
+                  <li>Alpha-only emitted token drop: <code>101A/ABC</code> keeps only <code>101A</code>.</li>
                 </ul>
               </article>
               <article class="algorithm-card">
@@ -443,7 +457,7 @@
           </article>
           <article class="card">
             <h4>Scenario Coverage</h4>
-            <p>Starter cases cover slash, ampersand, comma splitting, shorthand inheritance, whitespace handling, alpha-only drop rules, and row-expansion behavior.</p>
+            <p>Starter cases cover slash, ampersand, comma splitting, shorthand inheritance, last-hyphen shared-prefix expansion, alpha-tail suffix propagation, whitespace handling, alpha-only drop rules, and row-expansion behavior.</p>
           </article>
           <article class="card">
             <h4>Fast Feedback</h4>
@@ -454,6 +468,7 @@
           <strong>Current documented external harness behavior</strong>
           <ul>
             <li>Compound splitting supports <code>&amp;</code>, <code>/</code>, and <code>,</code>.</li>
+            <li>Shared-prefix inheritance supports examples such as <code>JB-DBP-TF1-1/1R2/08</code> and <code>1-BNG-TH3-N/1R4/09-1</code>.</li>
             <li>Whitespace is removed both before other cleaning logic and again at the end of the full process.</li>
             <li>Alpha-only emitted expansions are ignored after final normalization.</li>
             <li>Row-expansion checks confirm one final ID per emitted row rather than repeating a full ID list on every row.</li>

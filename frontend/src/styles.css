@@ -52,6 +52,7 @@ html.dark body {
 }
 
 html.dark .theme-app-shell {
+  color: #e2e8f0;
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
@@ -87,6 +88,11 @@ html.dark .theme-app-shell .text-slate-700 {
   color: #cbd5e1 !important;
 }
 
+html.dark .theme-app-shell .text-slate-800,
+html.dark .theme-app-shell .text-slate-900 {
+  color: #e2e8f0 !important;
+}
+
 html.dark .theme-app-shell .text-slate-600,
 html.dark .theme-app-shell .text-slate-500 {
   color: #94a3b8 !important;
@@ -94,6 +100,18 @@ html.dark .theme-app-shell .text-slate-500 {
 
 html.dark .theme-app-shell .text-slate-400 {
   color: #64748b !important;
+}
+
+html.dark .theme-app-shell .text-ocean {
+  color: #93c5fd !important;
+}
+
+html.dark .theme-app-shell .text-ember {
+  color: #fdba74 !important;
+}
+
+html.dark .theme-app-shell .text-pine {
+  color: #86efac !important;
 }
 
 html.dark .theme-app-shell .bg-white {
@@ -113,6 +131,10 @@ html.dark .theme-app-shell .bg-slate-100 {
   background-color: #1e293b !important;
 }
 
+html.dark .theme-app-shell .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
 html.dark .theme-app-shell .bg-slate-950 {
   background-color: #020617 !important;
 }
@@ -125,11 +147,19 @@ html.dark .theme-app-shell .bg-sand {
   background-color: rgba(194, 65, 12, 0.14) !important;
 }
 
+html.dark .theme-app-shell .bg-ink {
+  background-color: #e2e8f0 !important;
+}
+
 html.dark .theme-app-shell .border-white\/70,
 html.dark .theme-app-shell .border-slate-300,
 html.dark .theme-app-shell .border-slate-200,
 html.dark .theme-app-shell .border-slate-100 {
   border-color: #334155 !important;
+}
+
+html.dark .theme-app-shell .border-dashed {
+  border-style: dashed;
 }
 
 html.dark .theme-app-shell .from-white {
@@ -140,6 +170,23 @@ html.dark .theme-app-shell .from-white {
 
 html.dark .theme-app-shell .to-mist {
   --tw-gradient-to: rgba(29, 78, 216, 0.18) var(--tw-gradient-to-position) !important;
+}
+
+html.dark .theme-app-shell .hover\:bg-slate-200:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .theme-app-shell .hover\:bg-orange-100:hover {
+  background-color: rgba(194, 65, 12, 0.24) !important;
+}
+
+html.dark .theme-app-shell .hover\:border-slate-300:hover {
+  border-color: #475569 !important;
+}
+
+html.dark .theme-app-shell .bg-ink.text-white,
+html.dark .theme-app-shell .text-white {
+  color: #0f172a !important;
 }
 
 html.dark .theme-app-shell input,
@@ -203,6 +250,11 @@ html.dark .theme-app-shell tr {
 
 html.dark .theme-app-shell pre {
   color: #cbd5e1;
+}
+
+html.dark .theme-app-shell button,
+html.dark .theme-app-shell a {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease;
 }
 
 html.dark .react-flow__background path {
